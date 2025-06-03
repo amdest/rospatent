@@ -1,0 +1,115 @@
+AllCops:
+  TargetRubyVersion: 3.3
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - "bin/**/*"
+    - "vendor/**/*"
+
+Style/StringLiterals:
+  Enabled: true
+  EnforcedStyle: double_quotes
+
+Style/Documentation:
+  Enabled: true
+  Exclude:
+    - "lib/rospatent/railtie.rb" # Rails integration file doesn't need top-level docs
+
+Style/FrozenStringLiteralComment:
+  Enabled: true
+  EnforcedStyle: always
+
+Metrics/BlockLength:
+  Exclude:
+    - "test/**/*"
+    - "*.gemspec"
+    - "lib/rospatent/input_validator.rb" # Validation loops can be long
+
+Metrics/AbcSize:
+  Max: 25
+  Exclude:
+    - "lib/rospatent/client.rb" # API client methods can be complex
+    - "lib/rospatent/input_validator.rb" # Validation methods are inherently complex
+    - "lib/rospatent/search.rb" # Search parameter handling is complex
+    - "test/**/*" # Test methods can be complex
+
+Style/EndlessMethod:
+  Enabled: true
+
+Layout/LineLength:
+  Max: 100
+  Exclude:
+    - "lib/rospatent/input_validator.rb" # Long error messages for validation
+    - "lib/rospatent/patent_parser.rb" # Long method documentation
+    - "lib/rospatent/search.rb" # Long validation lines
+    - "lib/rospatent/cache.rb" # Statistics calculation lines
+    - "test/**/*" # Test descriptions can be long
+    - "*.gemspec" # Gemspec descriptions can be long
+
+# API integration specific rules
+Naming/MethodParameterName:
+  Enabled: true
+  MinNameLength: 3
+  AllowedNames:
+    - q # Rospatent API uses 'q' for search query
+    - qn # Rospatent API uses 'qn' for natural language query
+
+Metrics/ParameterLists:
+  Enabled: true
+  Max: 6 # API methods often need many parameters
+  CountKeywordArgs: true
+  MaxOptionalParameters: 5
+  Exclude:
+    - "lib/rospatent/search.rb"
+    - "lib/rospatent/client.rb" # Media methods need many parameters
+    - "lib/rospatent/logger.rb" # Logging methods need many parameters
+
+Metrics/CyclomaticComplexity:
+  Max: 12 # Increased for API client complexity
+  Exclude:
+    - "lib/rospatent/search.rb"
+    - "lib/rospatent/input_validator.rb" # Validation logic is inherently complex
+    - "lib/rospatent/client.rb" # Error handling and HTTP logic
+
+Metrics/MethodLength:
+  Max: 30 # API methods often need more lines
+  Exclude:
+    - "test/**/*"
+    - "lib/rospatent/client.rb" # HTTP methods with comprehensive error handling
+    - "lib/rospatent/input_validator.rb" # Validation methods can be long
+    - "lib/rospatent/search.rb" # Search parameter validation can be long
+
+Metrics/PerceivedComplexity:
+  Max: 12 # Increased for API client complexity
+  Exclude:
+    - "lib/rospatent/search.rb"
+    - "lib/rospatent/input_validator.rb" # Validation logic
+    - "lib/rospatent/client.rb" # HTTP and error handling
+
+Gemspec/DevelopmentDependencies:
+  Enabled: false # We're keeping dev dependencies in gemspec for compatibility
+
+# API client specific configurations
+Metrics/ClassLength:
+  Max: 500 # API clients often have many methods
+  Exclude:
+    - "test/**/*" # Test classes can be very long
+
+Metrics/ModuleLength:
+  Max: 200 # Validation and utility modules can be long
+
+Lint/UnusedMethodArgument:
+  Enabled: true
+  AllowUnusedKeywordArguments: true # Common in interface implementations
+
+Lint/ShadowedException:
+  Enabled: false # Common in network code with multiple exception types
+
+Style/RescueStandardError:
+  Enabled: false # Sometimes needed for comprehensive error handling
+
+Lint/DuplicateBranch:
+  Enabled: false # Sometimes necessary for clarity in API clients
+
+Style/DoubleNegation:
+  Enabled: false # Common pattern for boolean conversion in API clients

@@ -1,0 +1,29 @@
+# Rospatent Ruby - Rails Integration
+
+The Rospatent Ruby gem has been configured for your Rails application.
+
+## Configuration
+
+You can find and modify the configuration in:
+`config/initializers/rospatent.rb`
+
+## Environment Variables
+
+For security, it's recommended to use environment variables for sensitive information:
+
+```
+ROSPATENT_API_TOKEN=your_jwt_token
+```
+
+You can add these to your `.env` file if you're using the dotenv gem, or set them up in your deployment environment.
+
+## Usage
+
+You can now use the Rospatent API client in your Rails application:
+
+```ruby
+# In a controller or service
+results = Rospatent.client.search(q: "search_term")
+```
+
+For more usage details, see the gem's README.md file.

@@ -1,0 +1,222 @@
+# frozen_string_literal: true
+
+require_relative "input_validator"
+
+module Rospatent
+  # Search result class to handle API responses
+  class SearchResult
+    attr_reader :total, :available, :hits, :raw_response
+
+    # Initialize a search result from API response
+    # @param response [Hash] API response data
+    def initialize(response)
+      @raw_response = response
+      @total = response["total"]
+      @available = response["available"]
+      @hits = response["hits"] || []
+    end
+
+    # Check if the search has any results
+    # @return [Boolean] true if there are any hits
+    def any? = !@hits.empty?
+
+    # Return the number of hits in the current response
+    # @return [Integer] number of hits
+    def count = @hits.count
+  end
+
+  # Search class to handle search queries to the API
+  class Search
+    include InputValidator
+
+    # Initialize a new search instance
+    # @param client [Rospatent::Client] API client instance
+    def initialize(client)
+      @client = client
+    end
+
+    # Execute a search against the API
+    #
+    # @param q [String] Search query using the special query language
+    # @param qn [String] Natural language search query
+    # @param limit [Integer] Maximum number of results to return
+    # @param offset [Integer] Offset for pagination
+    # @param pre_tag [String] HTML tag to prepend to highlighted matches
+    # @param post_tag [String] HTML tag to append to highlighted matches
+    # @param sort [Symbol, String] Sort option (:relevance, :pub_date, :filing_date)
+    # @param group_by [Symbol, String] Grouping option (:patent_family)
+    # @param include_facets [Boolean] Whether to include facet information
+    # @param filter [Hash] Filters to apply to the search
+    # @param datasets [Array<String>] Datasets to search within
+    # @param highlight [Boolean] Whether to highlight matches
+    #
+    # @return [Rospatent::SearchResult] Search result object
+    def execute(
+      q: nil,
+      qn: nil,
+      limit: nil,
+      offset: nil,
+      pre_tag: nil,
+      post_tag: nil,
+      sort: nil,
+      group_by: nil,
+      include_facets: nil,
+      filter: nil,
+      datasets: nil,
+      highlight: nil
+    )
+      # Filter out nil parameters to only validate explicitly provided ones
+      params = {
+        q: q, qn: qn, limit: limit, offset: offset,
+        pre_tag: pre_tag, post_tag: post_tag, sort: sort,
+        group_by: group_by, include_facets: include_facets,
+        filter: filter, datasets: datasets, highlight: highlight
+      }.compact
+
+      # Validate and normalize parameters
+      validated_params = validate_and_normalize_params(**params)
+
+      payload = build_payload(**validated_params)
+      response = @client.post("/patsearch/v0.2/search", payload)
+      SearchResult.new(response)
+    end
+
+    private
+
+    # Validate and normalize all search parameters
+    # @param params [Hash] Search parameters
+    # @return [Hash] Validated and normalized parameters
+    # @raise [Rospatent::Errors::ValidationError] when validation fails
+    def validate_and_normalize_params(**params)
+      # Check that at least one query parameter is provided
+      unless params[:q] || params[:qn]
+        raise Errors::InvalidRequestError,
+              "Either 'q' or 'qn' parameter must be provided for search"
+      end
+
+      validated = {}
+
+      # Validate query parameters
+      validated[:q] = validate_string(params[:q], "q", max_length: 1000) if params[:q]
+      validated[:qn] = validate_string(params[:qn], "qn", max_length: 1000) if params[:qn]
+
+      # Validate pagination parameters (only if provided)
+      if params[:limit]
+        validated[:limit] =
+          validate_positive_integer(params[:limit], "limit", min_value: 1, max_value: 100)
+      end
+      if params[:offset]
+        validated[:offset] =
+          validate_positive_integer(params[:offset], "offset", min_value: 0, max_value: 10_000)
+      end
+
+      # Validate highlighting parameters (only if provided)
+      if params.key?(:highlight)
+        validated[:highlight] = !!params[:highlight]
+        if params[:highlight] && params[:pre_tag]
+          validated[:pre_tag] =
+            validate_string(params[:pre_tag], "pre_tag", max_length: 50)
+        end
+        if params[:highlight] && params[:post_tag]
+          validated[:post_tag] =
+            validate_string(params[:post_tag], "post_tag", max_length: 50)
+        end
+      end
+
+      # Validate sort parameter (only if provided)
+      validated[:sort] = validate_sort_parameter(params[:sort]) if params[:sort]
+
+      # Validate group_by parameter (only if provided)
+      if params[:group_by]
+        validated[:group_by] = validate_enum(params[:group_by], [:patent_family], "group_by")
+      end
+
+      # Validate boolean parameters (only if provided)
+      validated[:include_facets] = !params[:include_facets].nil? if params.key?(:include_facets)
+
+      # Validate filter parameter
+      validated[:filter] = validate_hash(params[:filter], "filter") if params[:filter]
+
+      # Validate datasets parameter
+      if params[:datasets]
+        validated[:datasets] = validate_array(params[:datasets], "datasets", max_size: 10) do |dataset|
+          validate_string(dataset, "dataset")
+        end
+      end
+
+      validated.compact
+    end
+
+    # Build the search payload
+    # @param params [Hash] Validated search parameters
+    # @return [Hash] Search request payload
+    def build_payload(**params)
+      payload = {}
+
+      # Add query parameters (required)
+      payload[:q] = params[:q] if params[:q]
+      payload[:qn] = params[:qn] if params[:qn]
+
+      # Add pagination parameters (only if explicitly provided)
+      payload[:limit] = params[:limit] if params[:limit]
+      payload[:offset] = params[:offset] if params[:offset]
+
+      # Add highlighting parameters (only if explicitly provided)
+      if params.key?(:highlight)
+        payload[:highlight] = params[:highlight]
+        payload[:pre_tag] = params[:pre_tag] if params[:pre_tag]
+        payload[:post_tag] = params[:post_tag] if params[:post_tag]
+      end
+
+      # Add sort parameter (only if explicitly provided)
+      payload[:sort] = params[:sort] if params[:sort]
+
+      # Add grouping parameter (only if explicitly provided)
+      payload[:group_by] = "patent_family" if params[:group_by] == :patent_family
+
+      # Add other parameters (only if explicitly provided)
+      payload[:include_facets] = params[:include_facets] if params.key?(:include_facets)
+      payload[:filter] = params[:filter] if params[:filter]
+      payload[:datasets] = params[:datasets] if params[:datasets]
+
+      payload
+    end
+
+    # Validate and normalize sort parameter according to API documentation
+    # @param sort_value [String, Symbol] Sort parameter value
+    # @return [String] Normalized sort parameter
+    # @raise [Rospatent::Errors::ValidationError] If sort parameter is invalid
+    def validate_sort_parameter(sort_value)
+      return nil unless sort_value
+
+      # Allowed values according to API documentation
+      allowed_values = [
+        "relevance",
+        "publication_date:asc",
+        "publication_date:desc",
+        "filing_date:asc",
+        "filing_date:desc"
+      ]
+
+      # Convert and normalize the sort parameter
+      normalized = case sort_value.to_s
+                   when "relevance" then "relevance"
+                   when "pub_date" then "publication_date:desc"    # Default to desc for backward compatibility
+                   when "filing_date" then "filing_date:desc"      # Default to desc for backward compatibility
+                   when "publication_date:asc", "publication_date:desc",
+                        "filing_date:asc", "filing_date:desc"
+                     sort_value.to_s
+                   else
+                     sort_value.to_s
+                   end
+
+      # Validate against allowed values
+      unless allowed_values.include?(normalized)
+        raise Errors::ValidationError,
+              "Invalid sort parameter. Allowed values: #{allowed_values.join(', ')}"
+      end
+
+      normalized
+    end
+  end
+end
