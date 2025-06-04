@@ -327,4 +327,75 @@ class InputValidatorTest < Minitest::Test
     assert_equal "test", result[:q]
     refute_includes result.keys, :offset
   end
+
+  def test_validate_text_with_word_count_with_sufficient_words
+    text = "This is a test text with exactly ten words for validation."
+    result = validate_text_with_word_count(text, "test_field", min_words: 5)
+    assert_equal text.strip, result
+  end
+
+  def test_validate_text_with_word_count_with_exact_minimum
+    text = "One two three four five"
+    result = validate_text_with_word_count(text, "test_field", min_words: 5)
+    assert_equal text, result
+  end
+
+  def test_validate_text_with_word_count_with_insufficient_words
+    text = "Only four words here"
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_text_with_word_count(text, "test_field", min_words: 5)
+    end
+    assert_match(/must contain at least 5 words/, error.message)
+    assert_match(/currently has 4/, error.message)
+  end
+
+  def test_validate_text_with_word_count_with_nil
+    result = validate_text_with_word_count(nil, "test_field", min_words: 5)
+    assert_nil result
+  end
+
+  def test_validate_text_with_word_count_with_empty_string
+    assert_raises(Rospatent::Errors::ValidationError) do
+      validate_text_with_word_count("", "test_field", min_words: 5)
+    end
+  end
+
+  def test_validate_text_with_word_count_with_max_length
+    # Text with enough words but too long
+    text = "word " * 100 # 100 words, 500 characters
+    assert_raises(Rospatent::Errors::ValidationError) do
+      validate_text_with_word_count(text, "test_field", min_words: 50, max_length: 400)
+    end
+  end
+
+  def test_validate_text_with_word_count_with_multiple_spaces
+    text = "These    words   have    multiple     spaces    between    them    for    testing    purposes"
+    result = validate_text_with_word_count(text, "test_field", min_words: 10)
+    assert_equal text.strip, result
+  end
+
+  def test_validate_text_with_word_count_with_50_words_for_similar_patents
+    # Test the specific case for similar_patents_by_text
+    words = %w[
+      Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod
+      tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim
+      veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
+      commodo consequat Duis aute irure dolor in reprehenderit in voluptate
+      velit esse cillum dolore eu fugiat nulla pariatur Excepteur sint
+    ]
+    text = words.join(" ")
+    result = validate_text_with_word_count(text, "search_text", min_words: 50)
+    assert_equal text, result
+  end
+
+  def test_validate_text_with_word_count_with_49_words_fails
+    # Test that 49 words fails the 50-word requirement
+    words = (1..49).map { |i| "word#{i}" }
+    text = words.join(" ")
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_text_with_word_count(text, "search_text", min_words: 50)
+    end
+    assert_match(/must contain at least 50 words/, error.message)
+    assert_match(/currently has 49/, error.message)
+  end
 end

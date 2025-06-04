@@ -100,6 +100,29 @@ module Rospatent
       value.strip
     end
 
+    # Validate text with word count requirements
+    # @param value [String, nil] Text to validate
+    # @param field_name [String] Name of the field for error messages
+    # @param min_words [Integer] Minimum required word count
+    # @param max_length [Integer, nil] Maximum allowed character length
+    # @return [String] Validated text
+    # @raise [ValidationError] If text is invalid or has insufficient words
+    def validate_text_with_word_count(value, field_name, min_words:, max_length: nil)
+      # First, apply standard string validation
+      validated_text = validate_string(value, field_name, max_length: max_length)
+      return nil if validated_text.nil?
+
+      # Count words by splitting on whitespace
+      word_count = count_words(validated_text)
+
+      if word_count < min_words
+        raise Errors::ValidationError,
+              "#{field_name.capitalize} must contain at least #{min_words} words (currently has #{word_count})"
+      end
+
+      validated_text
+    end
+
     # Validate required non-empty string (does not allow nil)
     # @param value [String, nil] String to validate
     # @param field_name [String] Name of the field for error messages
@@ -301,6 +324,15 @@ module Rospatent
       raise Errors::ValidationError.new("Validation failed", errors) unless errors.empty?
 
       validated.compact
+    end
+
+    private
+
+    # Count words in a text by splitting on whitespace
+    # @param text [String] Text to count words in
+    # @return [Integer] Number of words
+    def count_words(text)
+      text.split.size
     end
   end
 end

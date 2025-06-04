@@ -281,7 +281,13 @@ class ClientTest < Minitest::Test
   def test_similar_patents_by_text
     # Arrange
     client = Rospatent::Client.new
-    text = "Двигатель содержит турбокомпрессор с компрессором"
+    # Text with at least 50 words for the API requirement
+    text = "Двигатель внутреннего сгорания содержит турбокомпрессор с компрессором и турбиной, " \
+           "которые соединены валом, причем компрессор имеет рабочее колесо с лопатками переменной " \
+           "геометрии, а турбина выполнена с возможностью регулирования угла установки лопаток " \
+           "направляющего аппарата, при этом система управления двигателем включает электронный " \
+           "блок управления, датчики температуры и давления, исполнительные механизмы для изменения " \
+           "положения лопаток компрессора и турбины, а также систему охлаждения наддувочного воздуха"
     expected_payload = {
       type_search: "text_search",
       pat_text: text,
@@ -306,7 +312,13 @@ class ClientTest < Minitest::Test
   def test_similar_patents_by_text_with_custom_count
     # Arrange
     client = Rospatent::Client.new
-    text = "Двигатель содержит турбокомпрессор с компрессором"
+    # Text with at least 50 words for the API requirement
+    text = "Двигатель внутреннего сгорания содержит турбокомпрессор с компрессором и турбиной, " \
+           "которые соединены валом, причем компрессор имеет рабочее колесо с лопатками переменной " \
+           "геометрии, а турбина выполнена с возможностью регулирования угла установки лопаток " \
+           "направляющего аппарата, при этом система управления двигателем включает электронный " \
+           "блок управления, датчики температуры и давления, исполнительные механизмы для изменения " \
+           "положения лопаток компрессора и турбины, а также систему охлаждения наддувочного воздуха"
     count = 50
     expected_payload = {
       type_search: "text_search",
@@ -347,12 +359,28 @@ class ClientTest < Minitest::Test
     client = Rospatent::Client.new
 
     # Act & Assert
-    error = assert_raises(Rospatent::Errors::InvalidRequestError) do
+    error = assert_raises(Rospatent::Errors::ValidationError) do
       client.similar_patents_by_text("")
     end
 
     assert_equal "Search_text cannot be empty", error.message,
                  "Should raise appropriate error message"
+  end
+
+  def test_similar_patents_by_text_with_insufficient_words
+    # Arrange
+    client = Rospatent::Client.new
+    short_text = "This text has only seven words total here"
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      client.similar_patents_by_text(short_text)
+    end
+
+    assert_match(/must contain at least 50 words/, error.message,
+                 "Should require at least 50 words")
+    assert_match(/currently has 8/, error.message,
+                 "Should show current word count")
   end
 
   def test_datasets_tree

@@ -147,13 +147,14 @@ module Rospatent
     end
 
     # Find patents similar to a given text
-    # @param text [String] The text to find similar patents to
+    # @param text [String] The text to find similar patents to (minimum 50 words required)
     # @param count [Integer] Maximum number of results to return (default: 100)
     # @return [Hash] The similar search results
-    # @raise [Rospatent::Errors::InvalidRequestError] If text is not provided
+    # @raise [Rospatent::Errors::ValidationError] If text has insufficient words or other validation errors
     def similar_patents_by_text(text, count: 100)
-      # Validate inputs
-      validated_text = validate_string(text, "search_text", max_length: 10_000)
+      # Validate inputs - text must have at least 50 words for the API
+      validated_text = validate_text_with_word_count(text, "search_text", min_words: 50,
+                                                                          max_length: 10_000)
       validated_count = validate_positive_integer(count, "count", max_value: 1000)
 
       # Check cache first (using hash of text for key)

@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description = "A comprehensive Ruby client for interacting with the Rospatent patent search API. " \
                      "Features include automatic caching, request validation, structured logging, " \
                      "error handling, and batch operations for efficient patent data retrieval."
-  spec.homepage = "https://hub.mos.ru/ad/rospatent"
+  spec.homepage = "https://github.com/amdest/rospatent"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.3.0"
 

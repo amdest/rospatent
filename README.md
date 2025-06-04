@@ -1,5 +1,7 @@
 # Rospatent
 
+[![Gem Version](https://badge.fury.io/rb/rospatent.svg)](https://badge.fury.io/rb/rospatent)
+
 A comprehensive Ruby client for the Rospatent patent search API with advanced features including intelligent caching, input validation, structured logging, and robust error handling.
 
 > 🇷🇺 **[Документация на русском языке](#-документация-на-русском-языке)** доступна ниже
@@ -211,13 +213,13 @@ similar = client.similar_patents_by_id("RU134694U1_20131120", count: 50)
 
 # Find similar patents by text description
 similar = client.similar_patents_by_text(
-  "Ракетный двигатель с улучшенной тягой",
+  "Ракетный двигатель с улучшенной тягой ...", # 50 words in request minimum
   count: 25
 )
 
 # Process similar patents
-similar["hits"]&.each do |patent|
-  puts "Similar: #{patent['id']} (score: #{patent['_score']})"
+similar["data"]&.each do |patent|
+  puts "Similar: #{patent['id']} (score: #{patent['similarity']} (#{patent['similarity_norm']}))"
 end
 ```
 
@@ -437,6 +439,20 @@ Rospatent.configure do |config|
 end
 ```
 
+### Staging Environment
+
+```ruby
+# Optimized for staging
+Rospatent.configure do |config|
+  config.environment = "staging"
+  config.token = ENV['ROSPATENT_TOKEN']
+  config.log_level = :info
+  config.cache_ttl = 300         # Longer cache for performance
+  config.timeout = 45            # Longer timeouts for reliability
+  config.retry_count = 3         # More retries for resilience
+end
+```
+
 ### Production Environment
 
 ```ruby
@@ -597,8 +613,10 @@ The library uses **Faraday** as the HTTP client with redirect support for all en
 - **All endpoints** (`/search`, `/docs/{id}`, `/similar_search`, `/datasets/tree`, etc.) - ✅ Working perfectly with Faraday
 - **Redirect handling**: Configured with `faraday-follow_redirects` middleware to handle server redirects automatically
 
-⚠️ **Minor server-side limitation**:
-- **Similar Patents by Text**: Occasionally returns `503 Service Unavailable` (server-side issue, not client implementation)
+⚠️ **Minor server-side limitations**:
+- **Similar Patents by Text**: Occasionally returns `503 Service Unavailable` (a server-side issue, not a client implementation issue)
+⚠️ **Documentation inconsistencies**:
+- **Similar Patents**: According to the documentation, the array of hits is named `hits`, but the real implementation uses the name `data`
 
 All core functionality works perfectly and is production-ready with a unified HTTP approach.
 
@@ -885,13 +903,13 @@ similar = client.similar_patents_by_id("RU134694U1_20131120", count: 50)
 
 # Поиск похожих патентов по описанию текста
 similar = client.similar_patents_by_text(
-  "Ракетный двигатель с улучшенной тягой",
+  "Ракетный двигатель с улучшенной тягой ...", # минимум 50 слов в запросе
   count: 25
 )
 
 # Обработка похожих патентов
-similar["hits"]&.each do |patent|
-  puts "Похожий: #{patent['id']} (оценка: #{patent['_score']})"
+similar["data"]&.each do |patent|
+  puts "Похожий: #{patent['id']} (оценка: #{patent['similarity']} (#{patent['similarity_norm']}))"
 end
 ```
 
@@ -1004,25 +1022,43 @@ end
 ### Разработка
 
 ```ruby
+# Оптимизировано для разработки
 Rospatent.configure do |config|
   config.environment = "development"
   config.token = ENV['ROSPATENT_DEV_TOKEN']
   config.log_level = :debug
   config.log_requests = true
-  config.cache_ttl = 60
+  config.log_responses = true
+  config.cache_ttl = 60          # Короткий кеш для разработки
+  config.timeout = 10            # Быстрые таймауты для быстрой обратной связи
+end
+```
+
+### Staging
+
+```ruby
+# Оптимизировано для staging
+Rospatent.configure do |config|
+  config.environment = "staging"
+  config.token = ENV['ROSPATENT_TOKEN']
+  config.log_level = :info
+  config.cache_ttl = 300         # Более длительный кеш для производительности
+  config.timeout = 45            # Более длительные таймауты для надежности
+  config.retry_count = 3         # Больше повторов для устойчивости
 end
 ```
 
 ### Продакшн
 
 ```ruby
+# Оптимизировано для продакшна
 Rospatent.configure do |config|
   config.environment = "production"
   config.token = ENV['ROSPATENT_TOKEN']
   config.log_level = :warn
-  config.cache_ttl = 600
-  config.timeout = 60
-  config.retry_count = 5
+  config.cache_ttl = 600         # Более длительный кеш для производительности
+  config.timeout = 60            # Более длительные таймауты для надежности
+  config.retry_count = 5         # Больше повторов для устойчивости
 end
 ```
 
@@ -1056,8 +1092,10 @@ end
 - **Все endpoints** (`/search`, `/docs/{id}`, `/similar_search`, `/datasets/tree`, и т.д.) - ✅ Работают идеально с Faraday
 - **Обработка редиректов**: Настроена с middleware `faraday-follow_redirects` для автоматической обработки серверных редиректов
 
-⚠️ **Незначительное серверное ограничение**:
+⚠️ **Незначительные серверные ограничения**:
 - **Поиск похожих патентов по тексту**: Иногда возвращает `503 Service Unavailable` (проблема сервера, не клиентской реализации)
+⚠️ **Неточности документации**:
+- **Поиск похожих патентов**: Массив совпадений в документации назван `hits`, фактическая реализация использует `data`
 
 Вся основная функциональность реализована и готова для продакшена.
 
