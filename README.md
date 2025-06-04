@@ -230,20 +230,20 @@ Search within patent classification systems (IPC and CPC) and get detailed infor
 ```ruby
 # Search for classification codes related to rockets in IPC
 ipc_results = client.classification_search("ipc", query: "ракета", lang: "ru")
-puts "Found #{ipc_results['total']} IPC codes"
+puts "Found #{ipc_results.size} IPC codes"
 
-ipc_results["hits"]&.each do |hit|
-  puts "#{hit['code']}: #{hit['description']}"
+ipc_results&.each do |result|
+  puts "#{result['Code']}: #{result['Description']}"
 end
 
 # Search for rocket-related codes in CPC using English
 cpc_results = client.classification_search("cpc", query: "rocket", lang: "en")
 
 # Get detailed information about a specific classification code
-code_info = client.classification_code("ipc", code: "F02K9/00", lang: "ru")
-puts "Code: #{code_info['code']}"
-puts "Description: #{code_info['description']}"
-puts "Hierarchy: #{code_info['hierarchy']&.join(' → ')}"
+code, info = client.classification_code("ipc", code: "F02K9/00", lang: "ru")&.first
+puts "Code: #{code}"
+puts "Description: #{info&.first['Description']}"
+puts "Hierarchy: #{info&.map{|level| level['Code']}&.join(' → ')}"
 
 # Get CPC code information in English
 cpc_info = client.classification_code("cpc", code: "B63H11/00", lang: "en")
@@ -279,9 +279,11 @@ pdf_data = client.patent_media_by_id(
 )
 
 # Get available datasets
-datasets = client.datasets_tree
-datasets.each do |dataset|
-  puts "#{dataset['id']}: #{dataset['name']}"
+datasets.each do |category|
+  puts "Category: #{category['name_en']}"
+  category.children.each do |dataset|
+    puts "  #{dataset['id']}: #{dataset['name_en']}"
+  end
 end
 ```
 
@@ -617,6 +619,7 @@ The library uses **Faraday** as the HTTP client with redirect support for all en
 - **Similar Patents by Text**: Occasionally returns `503 Service Unavailable` (a server-side issue, not a client implementation issue)
 ⚠️ **Documentation inconsistencies**:
 - **Similar Patents**: According to the documentation, the array of hits is named `hits`, but the real implementation uses the name `data`
+- **Available Datasets**: The `name` key in the real implementation has the localization suffix — `name_ru`, `name_en`
 
 All core functionality works perfectly and is production-ready with a unified HTTP approach.
 
@@ -920,20 +923,20 @@ end
 ```ruby
 # Поиск классификационных кодов, связанных с ракетами в IPC
 ipc_results = client.classification_search("ipc", query: "ракета", lang: "ru")
-puts "Найдено #{ipc_results['total']} кодов IPC"
+puts "Найдено #{ipc_results.size} кодов IPC"
 
-ipc_results["hits"]&.each do |hit|
-  puts "#{hit['code']}: #{hit['description']}"
+ipc_results&.each do |result|
+  puts "#{result['Code']}: #{result['Description']}"
 end
 
 # Поиск кодов, связанных с ракетами в CPC на английском
 cpc_results = client.classification_search("cpc", query: "rocket", lang: "en")
 
 # Получение подробной информации о конкретном классификационном коде
-code_info = client.classification_code("ipc", code: "F02K9/00", lang: "ru")
-puts "Код: #{code_info['code']}"
-puts "Описание: #{code_info['description']}"
-puts "Иерархия: #{code_info['hierarchy']&.join(' → ')}"
+code, info = client.classification_code("ipc", code: "F02K9/00", lang: "ru")&.first
+puts "Код: #{code}"
+puts "Описание: #{info&.first['Description']}"
+puts "Иерархия: #{info&.map{|level| level['Code']}&.join(' → ')}"
 
 # Получение информации о коде CPC на английском
 cpc_info = client.classification_code("cpc", code: "B63H11/00", lang: "en")
@@ -970,8 +973,11 @@ pdf_data = client.patent_media_by_id(
 
 # Получение доступных датасетов
 datasets = client.datasets_tree
-datasets.each do |dataset|
-  puts "#{dataset['id']}: #{dataset['name']}"
+datasets.each do |category|
+  puts "Категория: #{category['name_ru']}"
+  category.children.each do |dataset|
+    puts "  #{dataset['id']}: #{dataset['name_ru']}"
+  end
 end
 ```
 
@@ -1096,6 +1102,7 @@ end
 - **Поиск похожих патентов по тексту**: Иногда возвращает `503 Service Unavailable` (проблема сервера, не клиентской реализации)
 ⚠️ **Неточности документации**:
 - **Поиск похожих патентов**: Массив совпадений в документации назван `hits`, фактическая реализация использует `data`
+- **Перечень датасетов**: Ключ `name` в фактической реализации содержит признак локализации — `name_ru`, `name_en` 
 
 Вся основная функциональность реализована и готова для продакшена.
 

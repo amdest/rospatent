@@ -77,7 +77,8 @@ class FullWorkflowTest < Minitest::Test
 
     # Test similar patents by text
     begin
-      similar_by_text = @client.similar_patents_by_text("трансформатор тока", count: 5)
+      text = "Двигатель содержит турбокомпрессор с компрессором, камерой сгорания, выход из которой соединен газовым трактом с турбиной, и не менее двух электрических машин, встроенных в турбокомпрессор. В компрессор встроен электродвигатель, а в турбину - электрогенератор. Турбина выполнена свободной. Электрогенератор соединен с электродвигателем посредством силового кабеля. Обмотки электродвигателя установлены на статоре компрессора. Система постоянных магнитов электродвигателя закреплена на рабочих лопатках компрессора. Обмотки электрогенератора установлены на статоре турбины. Система постоянных магнитов электрогенератора закреплена на рабочих лопатках турбины."
+      similar_by_text = @client.similar_patents_by_text(text, count: 5)
       assert similar_by_text, "Similar patents by text should be found"
       assert similar_by_text.key?("total"), "Response should have total count"
       assert similar_by_text.key?("data"), "Response should have data array"

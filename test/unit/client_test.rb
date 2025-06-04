@@ -402,8 +402,10 @@ class ClientTest < Minitest::Test
     ]
 
     # Mock the get method
-    client.stub :get, lambda { |path|
+    client.stub :get, lambda { |path, params = {}, binary: false|
       assert_equal "/patsearch/v0.2/datasets/tree", path, "Should call correct endpoint"
+      assert_equal({}, params, "Should pass empty params")
+      refute binary, "Should request JSON data for datasets"
       expected_response
     } do
       # Act
@@ -427,8 +429,10 @@ class ClientTest < Minitest::Test
     expected_path = "/media/National/RU/U1/2013/11/20/0000134694/document.pdf"
 
     # Mock the get method
-    client.stub :get, lambda { |endpoint|
+    client.stub :get, lambda { |endpoint, params = {}, binary: false|
       assert_equal expected_path, endpoint, "Should construct the correct path with string date"
+      assert_equal({}, params, "Should pass empty params")
+      assert binary, "Should request binary data for media"
       expected_pdf_content
     } do
       # Act
@@ -453,8 +457,10 @@ class ClientTest < Minitest::Test
     expected_path = "/media/National/RU/U1/2013/11/20/0000134694/document.pdf"
 
     # Mock the get method
-    client.stub :get, lambda { |endpoint|
+    client.stub :get, lambda { |endpoint, params = {}, binary: false|
       assert_equal expected_path, endpoint, "Should correctly format Date object to string path"
+      assert_equal({}, params, "Should pass empty params")
+      assert binary, "Should request binary data for media"
       expected_pdf_content
     } do
       # Act
@@ -479,8 +485,10 @@ class ClientTest < Minitest::Test
     expected_path = "/media/National/RU/U1/2013/11/20/0000134694/figure1.jpg"
 
     # Mock the get method
-    client.stub :get, lambda { |endpoint|
+    client.stub :get, lambda { |endpoint, params = {}, binary: false|
       assert_equal expected_path, endpoint, "Should construct the correct path for different file types"
+      assert_equal({}, params, "Should pass empty params")
+      assert binary, "Should request binary data for media"
       expected_content
     } do
       # Act
@@ -529,11 +537,13 @@ class ClientTest < Minitest::Test
     collection_id = "National"
     filename = "document.pdf"
     expected_content = "PDF binary content"
-    expected_path = "/media/National/RU/U1/2013/11/20/134694/document.pdf"
+    expected_path = "/media/National/RU/U1/2013/11/20/0000134694/document.pdf"
 
     # Mock the get method
-    client.stub :get, lambda { |endpoint|
-      assert_equal expected_path, endpoint, "Should construct the correct path from patent ID"
+    client.stub :get, lambda { |endpoint, params = {}, binary: false|
+      assert_equal expected_path, endpoint, "Should construct the correct path from patent ID with padded number"
+      assert_equal({}, params, "Should pass empty params")
+      assert binary, "Should request binary data for media"
       expected_content
     } do
       # Act
@@ -598,7 +608,7 @@ class ClientTest < Minitest::Test
 
     # Mock the post method to verify the endpoint and payload
     client.stub :post, lambda { |endpoint, payload|
-      assert_equal "/patsearch/v0.2/classification/ipc/search", endpoint, "Should call the correct endpoint"
+      assert_equal "/patsearch/v0.2/classification/ipc/search/", endpoint, "Should call the correct endpoint"
       assert_equal expected_payload, payload, "Should send correct payload"
       expected_response
     } do
@@ -629,7 +639,7 @@ class ClientTest < Minitest::Test
 
     # Mock the post method to verify the endpoint and payload
     client.stub :post, lambda { |endpoint, payload|
-      assert_equal "/patsearch/v0.2/classification/cpc/search", endpoint, "Should call the correct endpoint"
+      assert_equal "/patsearch/v0.2/classification/cpc/search/", endpoint, "Should call the correct endpoint"
       assert_equal expected_payload, payload, "Should send correct payload"
       expected_response
     } do
@@ -695,7 +705,7 @@ class ClientTest < Minitest::Test
 
     # Mock the post method
     client.stub :post, lambda { |endpoint, payload|
-      assert_equal "/patsearch/v0.2/classification/ipc/code", endpoint, "Should call the correct endpoint"
+      assert_equal "/patsearch/v0.2/classification/ipc/code/", endpoint, "Should call the correct endpoint"
       assert_equal expected_payload, payload, "Should create correct payload"
       expected_response
     } do
@@ -725,7 +735,7 @@ class ClientTest < Minitest::Test
 
     # Mock the post method
     client.stub :post, lambda { |endpoint, payload|
-      assert_equal "/patsearch/v0.2/classification/cpc/code", endpoint, "Should call the correct endpoint"
+      assert_equal "/patsearch/v0.2/classification/cpc/code/", endpoint, "Should call the correct endpoint"
       assert_equal expected_payload, payload, "Should create correct payload"
       expected_response
     } do
@@ -771,5 +781,88 @@ class ClientTest < Minitest::Test
     end
 
     assert_match(/Invalid lang/, error.message, "Should validate language")
+  end
+
+  def test_format_publication_number_with_russian_short_number
+    # Arrange
+    client = Rospatent::Client.new
+
+    # Act - Access private method for testing
+    result = client.send(:format_publication_number, "134694", "RU")
+
+    # Assert
+    assert_equal "0000134694", result, "Should pad Russian numbers to 10 digits"
+  end
+
+  def test_format_publication_number_with_russian_long_number
+    # Arrange
+    client = Rospatent::Client.new
+
+    # Act - Access private method for testing
+    result = client.send(:format_publication_number, "1234567890", "RU")
+
+    # Assert
+    assert_equal "1234567890", result, "Should not modify Russian numbers that are already 10+ digits"
+  end
+
+  def test_format_publication_number_with_non_russian_number
+    # Arrange
+    client = Rospatent::Client.new
+
+    # Act - Access private method for testing
+    result = client.send(:format_publication_number, "123456", "US")
+
+    # Assert
+    assert_equal "123456", result, "Should not pad non-Russian patent numbers"
+  end
+
+  def test_get_with_binary_flag_returns_raw_data
+    # Arrange
+    client = Rospatent::Client.new
+    binary_data = "\x25\x50\x44\x46\x2D\x31\x2E\x34" # PDF header bytes
+    endpoint = "/media/test.pdf"
+
+    # Test by directly stubbing the get method to verify binary flag is passed correctly
+    get_called_with_binary = false
+    original_get = client.method(:get)
+
+    client.define_singleton_method(:get) do |path, params = {}, binary: false|
+      get_called_with_binary = binary
+      binary_data
+    end
+
+    # Act
+    result = client.send(:get, endpoint, {}, binary: true)
+
+    # Assert
+    assert_equal binary_data, result, "Should return binary data unchanged"
+    assert get_called_with_binary, "Should call get with binary: true"
+  end
+
+  def test_patent_media_returns_binary_data
+    # Arrange
+    client = Rospatent::Client.new
+    collection_id = "National"
+    country_code = "RU"
+    doc_type = "U1"
+    pub_date = "2013/11/20"
+    pub_number = "0000134694"
+    filename = "document.pdf"
+    pdf_binary_data = "\x25\x50\x44\x46\x2D\x31\x2E\x34\x0A" # PDF header
+    expected_path = "/media/National/RU/U1/2013/11/20/0000134694/document.pdf"
+
+    # Mock the get method to verify binary flag is used
+    client.stub :get, lambda { |path, params = {}, binary: false|
+      assert_equal expected_path, path, "Should construct correct path"
+      assert_equal({}, params, "Should pass empty params")
+      assert binary, "Should request binary data"
+      pdf_binary_data
+    } do
+      # Act
+      result = client.patent_media(collection_id, country_code, doc_type, pub_date, pub_number, filename)
+
+      # Assert
+      assert_equal pdf_binary_data, result, "Should return binary PDF data"
+    end
   end
 end

@@ -199,7 +199,7 @@ module Rospatent
       @logger.log_cache("miss", cache_key)
 
       # Make the API request
-      result = get("/patsearch/v0.2/datasets/tree")
+      result = get("/patsearch/v0.2/datasets/tree", {})
 
       # Cache the result for longer since datasets don't change often
       @cache.set(cache_key, result, ttl: 3600) # Cache for 1 hour
@@ -230,19 +230,22 @@ module Rospatent
       # Format publication date
       formatted_date = validated_date.strftime("%Y/%m/%d")
 
+      # Format publication number with appropriate padding
+      formatted_number = format_publication_number(validated_number, validated_country)
+
       # Construct the path
       path = "/media/#{validated_collection}/#{validated_country}/" \
-             "#{validated_doc_type}/#{formatted_date}/#{validated_number}/" \
+             "#{validated_doc_type}/#{formatted_date}/#{formatted_number}/" \
              "#{validated_filename}"
 
-      # Make a GET request to retrieve the media file
-      get(path)
+      # Get binary data
+      get(path, {}, binary: true)
     end
 
-    # Simplified method to retrieve media data by patent ID and collection ID
-    # @param document_id [String] The patent document ID (e.g., "RU134694U1_20131120")
-    # @param collection_id [String] Dataset/collection identifier (e.g., "National")
-    # @param filename [String] Media file name (e.g., "document.pdf")
+    # Retrieve media using simplified patent ID format
+    # @param document_id [String] Patent document ID (e.g., "RU134694U1_20131120")
+    # @param collection_id [String] Collection identifier (e.g., "National")
+    # @param filename [String] Filename to retrieve (e.g., "document.pdf")
     # @return [String] Binary content of the requested file
     # @raise [Rospatent::Errors::InvalidRequestError] If document_id format is invalid
     #   or parameters are missing
@@ -258,9 +261,12 @@ module Rospatent
       # Format the date from YYYYMMDD to YYYY/MM/DD
       formatted_date = id_parts[:date].gsub(/^(\d{4})(\d{2})(\d{2})$/, '\1/\2/\3')
 
+      # Format publication number with appropriate padding
+      formatted_number = format_publication_number(id_parts[:number], id_parts[:country_code])
+
       # Call the base method with extracted components
       patent_media(validated_collection, id_parts[:country_code], id_parts[:doc_type],
-                   formatted_date, id_parts[:number], validated_filename)
+                   formatted_date, formatted_number, validated_filename)
     end
 
     # Extract and parse the abstract content from a patent document
@@ -334,7 +340,7 @@ module Rospatent
       }
 
       # Make a POST request to the classification search endpoint
-      result = post("/patsearch/v0.2/classification/#{validated_classifier}/search", payload)
+      result = post("/patsearch/v0.2/classification/#{validated_classifier}/search/", payload)
 
       # Cache the result
       @cache.set(cache_key, result, ttl: 1800) # Cache for 30 minutes
@@ -374,7 +380,7 @@ module Rospatent
       }
 
       # Make a POST request to the classification code endpoint
-      result = post("/patsearch/v0.2/classification/#{validated_classifier}/code", payload)
+      result = post("/patsearch/v0.2/classification/#{validated_classifier}/code/", payload)
 
       # Cache the result for longer since classification codes don't change often
       @cache.set(cache_key, result, ttl: 3600) # Cache for 1 hour
@@ -386,8 +392,9 @@ module Rospatent
     # Execute a GET request to the API
     # @param endpoint [String] API endpoint
     # @param params [Hash] Query parameters (optional)
-    # @return [Hash] Response data
-    def get(endpoint, params = {})
+    # @param binary [Boolean] Whether to expect binary response (default: false)
+    # @return [Hash, String] Response data (Hash for JSON, String for binary)
+    def get(endpoint, params = {}, binary: false)
       start_time = Time.now
       request_id = generate_request_id
 
@@ -395,8 +402,12 @@ module Rospatent
       @request_count += 1
 
       response = connection.get(endpoint, params) do |req|
-        req.headers["Accept"] = "application/json"
-        req.headers["Content-Type"] = "application/json"
+        if binary
+          req.headers["Accept"] = "*/*"
+        else
+          req.headers["Accept"] = "application/json"
+          req.headers["Content-Type"] = "application/json"
+        end
         req.headers["X-Request-ID"] = request_id
       end
 
@@ -406,7 +417,11 @@ module Rospatent
       @logger.log_response("GET", endpoint, response.status, duration,
                            response_size: response.body&.bytesize, request_id: request_id)
 
-      handle_response(response, request_id)
+      if binary
+        handle_binary_response(response, request_id)
+      else
+        handle_response(response, request_id)
+      end
     rescue Faraday::Error => e
       @logger.log_error(e, { endpoint: endpoint, params: params, request_id: request_id })
       handle_error(e)
@@ -642,6 +657,42 @@ module Rospatent
       end
     end
 
+    # Process binary API response (for media files)
+    # @param response [Faraday::Response] Raw response from the API
+    # @param request_id [String] Request ID for tracking
+    # @return [String] Binary response data
+    # @raise [Rospatent::Errors::ApiError] If the response is not successful
+    def handle_binary_response(response, request_id = nil)
+      return response.body if response.success?
+
+      # For binary endpoints, error responses might still be JSON
+      error_msg = begin
+        data = JSON.parse(response.body)
+        data["error"] || data["message"] || "Unknown error"
+      rescue JSON::ParserError
+        "Binary request failed"
+      end
+
+      # Create specific error types based on status code
+      case response.status
+      when 401
+        raise Errors::AuthenticationError, "#{error_msg} [Request ID: #{request_id}]"
+      when 404
+        raise Errors::NotFoundError.new("#{error_msg} [Request ID: #{request_id}]", response.status)
+      when 422
+        errors = extract_validation_errors(response)
+        raise Errors::ValidationError.new(error_msg, errors)
+      when 429
+        retry_after = response.headers["Retry-After"]&.to_i
+        raise Errors::RateLimitError.new(error_msg, response.status, retry_after)
+      when 503
+        raise Errors::ServiceUnavailableError.new("#{error_msg} [Request ID: #{request_id}]",
+                                                  response.status)
+      else
+        raise Errors::ApiError.new(error_msg, response.status, response.body, request_id)
+      end
+    end
+
     # Handle connection errors
     # @param error [Faraday::Error] Connection error
     # @raise [Rospatent::Errors::ConnectionError] Wrapped connection error
@@ -694,6 +745,19 @@ module Rospatent
     # @return [String] Unique request identifier
     def generate_request_id
       "req_#{Time.now.to_f}_#{rand(10_000)}"
+    end
+
+    # Pad publication number with leading zeros for specific countries
+    # @param number [String] Publication number to pad
+    # @param country_code [String] Country code (e.g., "RU")
+    # @return [String] Padded publication number
+    def format_publication_number(number, country_code)
+      # Russian patents require 10-digit publication numbers
+      if country_code == "RU" && number.length < 10
+        number.rjust(10, "0")
+      else
+        number
+      end
     end
   end
 end
