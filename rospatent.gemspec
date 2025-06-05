@@ -32,9 +32,9 @@ Gem::Specification.new do |spec|
   spec.add_dependency "faraday-retry", "~> 2.3"
 
   spec.add_development_dependency "minitest", "~> 5.20"
-  spec.add_development_dependency "rubocop", "~> 1.59"
-  spec.add_development_dependency "rubocop-minitest", "~> 0.34"
-  spec.add_development_dependency "rubocop-rake", "~> 0.6"
+  spec.add_development_dependency "rubocop", "~> 1.76"
+  spec.add_development_dependency "rubocop-minitest", "~> 0.38"
+  spec.add_development_dependency "rubocop-rake", "~> 0.7"
 
   spec.metadata["rubygems_mfa_required"] = "true"
 end

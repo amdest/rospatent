@@ -341,12 +341,13 @@ class InputValidatorTest < Minitest::Test
   end
 
   def test_validate_text_with_word_count_with_insufficient_words
-    text = "Only four words here"
+    text = "One two three"
     error = assert_raises(Rospatent::Errors::ValidationError) do
       validate_text_with_word_count(text, "test_field", min_words: 5)
     end
-    assert_match(/must contain at least 5 words/, error.message)
-    assert_match(/currently has 4/, error.message)
+
+    assert_includes error.message, "must contain at least 5 words"
+    assert_includes error.message, "currently has 3"
   end
 
   def test_validate_text_with_word_count_with_nil
@@ -397,5 +398,219 @@ class InputValidatorTest < Minitest::Test
     end
     assert_match(/must contain at least 50 words/, error.message)
     assert_match(/currently has 49/, error.message)
+  end
+
+  def test_validate_filter_with_authors_values
+    # Test valid authors filter
+    filter = { "authors" => { "values" => ["Гультяев Александр Михайлович (RU)", "Мокин Александр Васильевич, UA"] } }
+    result = validate_filter(filter)
+
+    expected = { "authors" => { "values" => ["Гультяев Александр Михайлович (RU)", "Мокин Александр Васильевич, UA"] } }
+    assert_equal expected, result
+  end
+
+  def test_validate_filter_with_country_values
+    # Test valid country filter
+    filter = { "country" => { "values" => %w[RU SU] } }
+    result = validate_filter(filter)
+
+    expected = { "country" => { "values" => %w[RU SU] } }
+    assert_equal expected, result
+  end
+
+  def test_validate_filter_with_classification_ipc_values
+    # Test valid IPC classification filter
+    filter = { "classification.ipc" => { "values" => ["F02K9/00"] } }
+    result = validate_filter(filter)
+
+    expected = { "classification.ipc" => { "values" => ["F02K9/00"] } }
+    assert_equal expected, result
+  end
+
+  def test_validate_filter_with_date_published_range
+    # Test valid date_published filter with gt operator
+    filter = { "date_published" => { "range" => { "gt" => "20000101" } } }
+    result = validate_filter(filter)
+
+    expected = { "date_published" => { "range" => { "gt" => "20000101" } } }
+    assert_equal expected, result
+  end
+
+  def test_validate_filter_with_application_filing_date_range
+    # Test valid application.filing_date filter with lte operator
+    filter = { "application.filing_date" => { "range" => { "lte" => "20000101" } } }
+    result = validate_filter(filter)
+
+    expected = { "application.filing_date" => { "range" => { "lte" => "20000101" } } }
+    assert_equal expected, result
+  end
+
+  def test_validate_filter_with_multiple_range_operators
+    # Test date filter with multiple operators
+    filter = { "date_published" => { "range" => { "gte" => "20000101", "lt" => "20101231" } } }
+    result = validate_filter(filter)
+
+    expected = { "date_published" => { "range" => { "gte" => "20000101", "lt" => "20101231" } } }
+    assert_equal expected, result
+  end
+
+  def test_validate_filter_converts_date_formats
+    # Test that various date formats are converted to YYYYMMDD
+    test_cases = [
+      ["2020-01-01", "20200101"],  # YYYY-MM-DD
+      ["2020/01/01", "20200101"],  # YYYY/MM/DD
+      [Date.new(2020, 1, 1), "20200101"] # Date object
+    ]
+
+    test_cases.each do |input_date, expected_date|
+      filter = { "date_published" => { "range" => { "gte" => input_date } } }
+      result = validate_filter(filter)
+
+      expected = { "date_published" => { "range" => { "gte" => expected_date } } }
+      assert_equal expected, result, "Failed to convert #{input_date} to #{expected_date}"
+    end
+  end
+
+  def test_validate_filter_with_invalid_field
+    # Test invalid filter field
+    filter = { "invalid_field" => { "values" => ["test"] } }
+
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_filter(filter)
+    end
+
+    assert_includes error.message, "Invalid filter field 'invalid_field'"
+    assert_includes error.message, "Allowed fields:"
+  end
+
+  def test_validate_filter_values_missing_values_key
+    # Test list filter missing 'values' key
+    filter = { "authors" => { "data" => ["test"] } }
+
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_filter(filter)
+    end
+
+    assert_includes error.message, "Missing required 'values' key in authors filter"
+  end
+
+  def test_validate_filter_values_empty_array
+    # Test list filter with empty values array
+    filter = { "country" => { "values" => [] } }
+
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_filter(filter)
+    end
+
+    assert_includes error.message, "Empty 'values' array in country filter"
+  end
+
+  def test_validate_filter_values_invalid_type
+    # Test list filter with non-array values
+    filter = { "authors" => { "values" => "not an array" } }
+
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_filter(filter)
+    end
+
+    assert_includes error.message, "Invalid 'values' type in authors filter"
+  end
+
+  def test_validate_filter_range_missing_range_key
+    # Test date filter missing 'range' key
+    filter = { "date_published" => { "from" => "20200101" } }
+
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_filter(filter)
+    end
+
+    assert_includes error.message, "Missing required 'range' key in date_published filter"
+  end
+
+  def test_validate_filter_range_invalid_operator
+    # Test date filter with invalid operator
+    filter = { "date_published" => { "range" => { "from" => "20200101" } } }
+
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_filter(filter)
+    end
+
+    assert_includes error.message, "Invalid range operator 'from' in date_published filter"
+    assert_includes error.message, "Allowed operators: gt, gte, lt, lte"
+  end
+
+  def test_validate_filter_range_empty_range
+    # Test date filter with empty range object
+    filter = { "date_published" => { "range" => {} } }
+
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_filter(filter)
+    end
+
+    assert_includes error.message, "Empty 'range' object in date_published filter"
+  end
+
+  def test_validate_filter_range_invalid_date_format
+    # Test date filter with invalid date format
+    filter = { "date_published" => { "range" => { "gt" => "invalid-date" } } }
+
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_filter(filter)
+    end
+
+    assert_includes error.message, "Invalid date format 'invalid-date'"
+  end
+
+  def test_validate_filter_range_invalid_date_value
+    # Test date filter with invalid date value (February 30th)
+    filter = { "date_published" => { "range" => { "gt" => "20200230" } } }
+
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_filter(filter)
+    end
+
+    assert_includes error.message, "Invalid date '20200230'"
+  end
+
+  def test_validate_filter_with_complex_multi_field
+    # Test complex filter with multiple fields
+    filter = {
+      "country" => { "values" => %w[RU SU] },
+      "classification.ipc" => { "values" => ["F02K9/00"] },
+      "date_published" => { "range" => { "gte" => "20000101", "lt" => "20201231" } }
+    }
+
+    result = validate_filter(filter)
+
+    expected = {
+      "country" => { "values" => %w[RU SU] },
+      "classification.ipc" => { "values" => ["F02K9/00"] },
+      "date_published" => { "range" => { "gte" => "20000101", "lt" => "20201231" } }
+    }
+    assert_equal expected, result
+  end
+
+  def test_validate_filter_with_symbol_keys
+    # Test that symbol keys work correctly
+    filter = { country: { values: ["RU"] } }
+    result = validate_filter(filter)
+
+    expected = { country: { "values" => ["RU"] } }
+    assert_equal expected, result
+  end
+
+  def test_validate_filter_with_nil_returns_nil
+    # Test that nil filter returns nil
+    result = validate_filter(nil)
+    assert_nil result
+  end
+
+  def test_validate_filter_with_non_hash_raises_error
+    # Test that non-hash filter raises error
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      validate_filter("not a hash")
+    end
+
+    assert_includes error.message, "Invalid filter type. Expected Hash, got String"
   end
 end

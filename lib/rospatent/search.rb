@@ -41,14 +41,14 @@ module Rospatent
     # @param qn [String] Natural language search query
     # @param limit [Integer] Maximum number of results to return
     # @param offset [Integer] Offset for pagination
-    # @param pre_tag [String] HTML tag to prepend to highlighted matches
-    # @param post_tag [String] HTML tag to append to highlighted matches
+    # @param pre_tag [String, Array<String>] HTML tag(s) to prepend to highlighted matches
+    # @param post_tag [String, Array<String>] HTML tag(s) to append to highlighted matches
     # @param sort [Symbol, String] Sort option (:relevance, :pub_date, :filing_date)
-    # @param group_by [Symbol, String] Grouping option (:patent_family)
+    # @param group_by [String] Grouping option ("family:docdb", "family:dwpi")
     # @param include_facets [Boolean] Whether to include facet information
     # @param filter [Hash] Filters to apply to the search
     # @param datasets [Array<String>] Datasets to search within
-    # @param highlight [Boolean] Whether to highlight matches
+    # @param highlight [Hash] Advanced highlight configuration with profiles
     #
     # @return [Rospatent::SearchResult] Search result object
     def execute(
@@ -111,31 +111,35 @@ module Rospatent
       end
 
       # Validate highlighting parameters (only if provided)
-      if params.key?(:highlight)
-        validated[:highlight] = !!params[:highlight]
-        if params[:highlight] && params[:pre_tag]
-          validated[:pre_tag] =
-            validate_string(params[:pre_tag], "pre_tag", max_length: 50)
+      # pre_tag and post_tag must be provided together
+      if params[:pre_tag] || params[:post_tag]
+        unless params[:pre_tag] && params[:post_tag]
+          raise Errors::ValidationError,
+                "Both pre_tag and post_tag must be provided together for highlighting"
         end
-        if params[:highlight] && params[:post_tag]
-          validated[:post_tag] =
-            validate_string(params[:post_tag], "post_tag", max_length: 50)
-        end
+
+        validated[:pre_tag] =
+          validate_string_or_array(params[:pre_tag], "pre_tag", max_length: 50, max_size: 10)
+        validated[:post_tag] =
+          validate_string_or_array(params[:post_tag], "post_tag", max_length: 50, max_size: 10)
       end
+
+      # Validate highlight parameter (complex object for advanced highlighting)
+      validated[:highlight] = validate_hash(params[:highlight], "highlight") if params[:highlight]
 
       # Validate sort parameter (only if provided)
       validated[:sort] = validate_sort_parameter(params[:sort]) if params[:sort]
 
       # Validate group_by parameter (only if provided)
       if params[:group_by]
-        validated[:group_by] = validate_enum(params[:group_by], [:patent_family], "group_by")
+        validated[:group_by] = validate_string_enum(params[:group_by], %w[family:docdb family:dwpi], "group_by")
       end
 
       # Validate boolean parameters (only if provided)
       validated[:include_facets] = !params[:include_facets].nil? if params.key?(:include_facets)
 
       # Validate filter parameter
-      validated[:filter] = validate_hash(params[:filter], "filter") if params[:filter]
+      validated[:filter] = validate_filter(params[:filter], "filter") if params[:filter]
 
       # Validate datasets parameter
       if params[:datasets]
@@ -161,18 +165,20 @@ module Rospatent
       payload[:limit] = params[:limit] if params[:limit]
       payload[:offset] = params[:offset] if params[:offset]
 
-      # Add highlighting parameters (only if explicitly provided)
-      if params.key?(:highlight)
-        payload[:highlight] = params[:highlight]
-        payload[:pre_tag] = params[:pre_tag] if params[:pre_tag]
-        payload[:post_tag] = params[:post_tag] if params[:post_tag]
+      # Add highlighting tags (only if both are provided)
+      if params[:pre_tag] && params[:post_tag]
+        payload[:pre_tag] = params[:pre_tag]
+        payload[:post_tag] = params[:post_tag]
       end
+
+      # Add advanced highlight parameter (independent of tags)
+      payload[:highlight] = params[:highlight] if params[:highlight]
 
       # Add sort parameter (only if explicitly provided)
       payload[:sort] = params[:sort] if params[:sort]
 
       # Add grouping parameter (only if explicitly provided)
-      payload[:group_by] = "patent_family" if params[:group_by] == :patent_family
+      payload[:group_by] = params[:group_by] if params[:group_by]
 
       # Add other parameters (only if explicitly provided)
       payload[:include_facets] = params[:include_facets] if params.key?(:include_facets)

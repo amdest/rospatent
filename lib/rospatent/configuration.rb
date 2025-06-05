@@ -31,7 +31,7 @@ module Rospatent
     # Initialize a new configuration with default values
     def initialize
       @api_url = "https://searchplatform.rospatent.gov.ru"
-      @token = nil
+      @token = ENV["ROSPATENT_TOKEN"] || ENV.fetch("ROSPATENT_API_TOKEN", nil)
       @timeout = 30
       @retry_count = 3
       @user_agent = "Rospatent Ruby Client/#{Rospatent::VERSION}"
@@ -106,6 +106,7 @@ module Rospatent
     private
 
     # Load environment-specific configuration
+    # Only override values that weren't explicitly set by environment variables
     def load_environment_config
       unless valid_environment?
         raise ArgumentError, "Invalid environment: #{@environment}. " \
@@ -116,20 +117,20 @@ module Rospatent
       when "production"
         @timeout = 60
         @retry_count = 5
-        @log_level = :warn
-        @cache_ttl = 600 # 10 minutes in production
+        @log_level = :warn unless ENV.key?("ROSPATENT_LOG_LEVEL")
+        @cache_ttl = 600 unless ENV.key?("ROSPATENT_CACHE_TTL") # 10 minutes in production
       when "staging"
         @timeout = 45
         @retry_count = 3
-        @log_level = :info
-        @cache_ttl = 300 # 5 minutes in staging
+        @log_level = :info unless ENV.key?("ROSPATENT_LOG_LEVEL")
+        @cache_ttl = 300 unless ENV.key?("ROSPATENT_CACHE_TTL") # 5 minutes in staging
       when "development"
         @timeout = 10
         @retry_count = 1
-        @log_level = :debug
-        @log_requests = true
-        @log_responses = true
-        @cache_ttl = 60 # 1 minute in development
+        @log_level = :debug unless ENV.key?("ROSPATENT_LOG_LEVEL")
+        @log_requests = true unless ENV.key?("ROSPATENT_LOG_REQUESTS")
+        @log_responses = true unless ENV.key?("ROSPATENT_LOG_RESPONSES")
+        @cache_ttl = 60 unless ENV.key?("ROSPATENT_CACHE_TTL") # 1 minute in development
       end
     end
   end

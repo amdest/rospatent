@@ -80,20 +80,21 @@ class SearchTest < Minitest::Test
     # Arrange
     filter = { "classification.ipc_group" => { "values" => ["F02K9"] } }
     datasets = ["ru_since_1994"]
+    highlight = { "profiles" => [{ "q" => "космическая", "pre_tag" => "<b>", "post_tag" => "</b>" }] }
 
     expected_payload = {
       q: "test",
       qn: "natural language query",
       limit: 20,
       offset: 30,
-      highlight: true,
       pre_tag: "<mark>",
       post_tag: "</mark>",
       sort: "publication_date:desc",
-      group_by: "patent_family",
+      group_by: "family:dwpi",
       include_facets: true,
       filter: filter,
-      datasets: datasets
+      datasets: datasets,
+      highlight: highlight
     }
 
     response_data = { "total" => 5, "available" => 5, "hits" => [] }
@@ -110,11 +111,11 @@ class SearchTest < Minitest::Test
       pre_tag: "<mark>",
       post_tag: "</mark>",
       sort: :pub_date,
-      group_by: :patent_family,
+      group_by: "family:dwpi",
       include_facets: true,
       filter: filter,
       datasets: datasets,
-      highlight: true
+      highlight: highlight
     )
 
     # Assert
@@ -134,7 +135,7 @@ class SearchTest < Minitest::Test
 
   def test_execute_with_no_highlight
     # Arrange
-    expected_payload = { q: "test", highlight: false }
+    expected_payload = { q: "test" }
 
     response_data = { "total" => 0, "available" => 0, "hits" => [] }
 
@@ -283,5 +284,386 @@ class SearchTest < Minitest::Test
       assert_match(/Invalid sort parameter/, error.message,
                    "Should reject invalid sort parameter: #{invalid_sort}")
     end
+  end
+
+  def test_execute_with_array_highlight_tags
+    # Arrange
+    expected_payload = {
+      q: "test",
+      pre_tag: ["<b>", "<i>"],
+      post_tag: ["</b>", "</i>"]
+    }
+
+    response_data = { "total" => 0, "available" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    @search.execute(q: "test", pre_tag: ["<b>", "<i>"], post_tag: ["</b>", "</i>"])
+
+    # Assert
+    @client_mock.verify
+  end
+
+  def test_execute_with_only_pre_tag_raises_error
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      @search.execute(q: "test", pre_tag: "<mark>")
+    end
+
+    assert_equal "Both pre_tag and post_tag must be provided together for highlighting", error.message
+  end
+
+  def test_execute_with_only_post_tag_raises_error
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      @search.execute(q: "test", post_tag: "</mark>")
+    end
+
+    assert_equal "Both pre_tag and post_tag must be provided together for highlighting", error.message
+  end
+
+  def test_execute_with_complex_highlight_object
+    # Arrange
+    highlight = {
+      "profiles" => [
+        { "q" => "космическая", "pre_tag" => "<b>", "post_tag" => "</b>" },
+        "_searchquery_"
+      ]
+    }
+
+    expected_payload = {
+      q: "test",
+      highlight: highlight
+    }
+
+    response_data = { "total" => 0, "available" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    @search.execute(q: "test", highlight: highlight)
+
+    # Assert
+    @client_mock.verify
+  end
+
+  def test_execute_with_highlight_and_tags_independent
+    # Arrange - highlight parameter and tags should be independent
+    highlight = { "profiles" => ["_searchquery_"] }
+
+    expected_payload = {
+      q: "test",
+      pre_tag: "<mark>",
+      post_tag: "</mark>",
+      highlight: highlight
+    }
+
+    response_data = { "total" => 0, "available" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    @search.execute(q: "test", pre_tag: "<mark>", post_tag: "</mark>", highlight: highlight)
+
+    # Assert
+    @client_mock.verify
+  end
+
+  def test_execute_with_family_docdb_grouping
+    # Arrange
+    expected_payload = {
+      q: "test",
+      group_by: "family:docdb"
+    }
+
+    response_data = { "total" => 0, "available" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    @search.execute(q: "test", group_by: "family:docdb")
+
+    # Assert
+    @client_mock.verify
+  end
+
+  def test_execute_with_family_dwpi_grouping
+    # Arrange
+    expected_payload = {
+      q: "test",
+      group_by: "family:dwpi"
+    }
+
+    response_data = { "total" => 0, "available" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    @search.execute(q: "test", group_by: "family:dwpi")
+
+    # Assert
+    @client_mock.verify
+  end
+
+  def test_execute_with_invalid_group_by_raises_error
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      @search.execute(q: "test", group_by: "invalid_grouping")
+    end
+
+    assert_match(/Invalid group_by/, error.message)
+    assert_match(/family:docdb, family:dwpi/, error.message)
+  end
+
+  def test_group_by_validation_with_invalid_family_value
+    # Arrange
+    search = Rospatent::Search.new(@client)
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      search.execute(q: "test", group_by: "family:invalid")
+    end
+
+    assert_includes error.message, "Invalid group_by. Allowed values: family:docdb, family:dwpi"
+  end
+
+  def test_filter_validation_with_valid_authors_filter
+    # Arrange
+    filter = { "authors" => { "values" => ["Гультяев Александр Михайлович (RU)"] } }
+    expected_payload = {
+      q: "test",
+      filter: { "authors" => { "values" => ["Гультяев Александр Михайлович (RU)"] } }
+    }
+    response_data = { "total" => 0, "available" => 0, "count" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    result = @search.execute(q: "test", filter: filter)
+
+    # Assert
+    assert_instance_of Rospatent::SearchResult, result
+    @client_mock.verify
+  end
+
+  def test_filter_validation_with_valid_country_filter
+    # Arrange
+    filter = { "country" => { "values" => %w[RU SU] } }
+    expected_payload = {
+      q: "test",
+      filter: { "country" => { "values" => %w[RU SU] } }
+    }
+    response_data = { "total" => 0, "available" => 0, "count" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    result = @search.execute(q: "test", filter: filter)
+
+    # Assert
+    assert_instance_of Rospatent::SearchResult, result
+    @client_mock.verify
+  end
+
+  def test_filter_validation_with_valid_classification_ipc_filter
+    # Arrange
+    filter = { "classification.ipc" => { "values" => ["F02K9/00"] } }
+    expected_payload = {
+      q: "test",
+      filter: { "classification.ipc" => { "values" => ["F02K9/00"] } }
+    }
+    response_data = { "total" => 0, "available" => 0, "count" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    result = @search.execute(q: "test", filter: filter)
+
+    # Assert
+    assert_instance_of Rospatent::SearchResult, result
+    @client_mock.verify
+  end
+
+  def test_filter_validation_with_valid_date_published_range
+    # Arrange
+    filter = { "date_published" => { "range" => { "gt" => "20000101" } } }
+    expected_payload = {
+      q: "test",
+      filter: { "date_published" => { "range" => { "gt" => "20000101" } } }
+    }
+    response_data = { "total" => 0, "available" => 0, "count" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    result = @search.execute(q: "test", filter: filter)
+
+    # Assert
+    assert_instance_of Rospatent::SearchResult, result
+    @client_mock.verify
+  end
+
+  def test_filter_validation_with_valid_application_filing_date_range
+    # Arrange
+    filter = { "application.filing_date" => { "range" => { "lte" => "20000101" } } }
+    expected_payload = {
+      q: "test",
+      filter: { "application.filing_date" => { "range" => { "lte" => "20000101" } } }
+    }
+    response_data = { "total" => 0, "available" => 0, "count" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    result = @search.execute(q: "test", filter: filter)
+
+    # Assert
+    assert_instance_of Rospatent::SearchResult, result
+    @client_mock.verify
+  end
+
+  def test_filter_validation_converts_date_formats_in_search
+    # Arrange
+    filter = { "date_published" => { "range" => { "gte" => "2020-01-01" } } }
+    expected_payload = {
+      q: "test",
+      filter: { "date_published" => { "range" => { "gte" => "20200101" } } }
+    }
+    response_data = { "total" => 0, "available" => 0, "count" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    result = @search.execute(q: "test", filter: filter)
+
+    # Assert
+    assert_instance_of Rospatent::SearchResult, result
+    @client_mock.verify
+  end
+
+  def test_filter_validation_with_complex_multi_field_filter
+    # Arrange
+    filter = {
+      "country" => { "values" => %w[RU SU] },
+      "classification.ipc" => { "values" => ["F02K9/00"] },
+      "date_published" => { "range" => { "gte" => "20000101", "lt" => "20201231" } }
+    }
+    expected_payload = {
+      q: "test",
+      filter: {
+        "country" => { "values" => %w[RU SU] },
+        "classification.ipc" => { "values" => ["F02K9/00"] },
+        "date_published" => { "range" => { "gte" => "20000101", "lt" => "20201231" } }
+      }
+    }
+    response_data = { "total" => 0, "available" => 0, "count" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    result = @search.execute(q: "test", filter: filter)
+
+    # Assert
+    assert_instance_of Rospatent::SearchResult, result
+    @client_mock.verify
+  end
+
+  def test_filter_validation_rejects_invalid_field
+    # Arrange
+    filter = { "invalid_field" => { "values" => ["test"] } }
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      @search.execute(q: "test", filter: filter)
+    end
+
+    assert_includes error.message, "Invalid filter field 'invalid_field'"
+    assert_includes error.message, "Allowed fields:"
+  end
+
+  def test_filter_validation_rejects_missing_values_key
+    # Arrange
+    filter = { "authors" => { "data" => ["test"] } }
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      @search.execute(q: "test", filter: filter)
+    end
+
+    assert_includes error.message, "Missing required 'values' key in authors filter"
+  end
+
+  def test_filter_validation_rejects_empty_values_array
+    # Arrange
+    filter = { "country" => { "values" => [] } }
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      @search.execute(q: "test", filter: filter)
+    end
+
+    assert_includes error.message, "Empty 'values' array in country filter"
+  end
+
+  def test_filter_validation_rejects_missing_range_key
+    # Arrange
+    filter = { "date_published" => { "from" => "20200101" } } # OLD WRONG FORMAT
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      @search.execute(q: "test", filter: filter)
+    end
+
+    assert_includes error.message, "Missing required 'range' key in date_published filter"
+  end
+
+  def test_filter_validation_rejects_invalid_range_operator
+    # Arrange
+    filter = { "date_published" => { "range" => { "from" => "20200101" } } } # WRONG OPERATOR
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      @search.execute(q: "test", filter: filter)
+    end
+
+    assert_includes error.message, "Invalid range operator 'from' in date_published filter"
+    assert_includes error.message, "Allowed operators: gt, gte, lt, lte"
+  end
+
+  def test_filter_validation_rejects_invalid_date_format
+    # Arrange
+    filter = { "date_published" => { "range" => { "gt" => "invalid-date" } } }
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      @search.execute(q: "test", filter: filter)
+    end
+
+    assert_includes error.message, "Invalid date format 'invalid-date'"
+  end
+
+  def test_filter_validation_rejects_invalid_date_value
+    # Arrange
+    filter = { "date_published" => { "range" => { "gt" => "20200230" } } } # February 30th
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ValidationError) do
+      @search.execute(q: "test", filter: filter)
+    end
+
+    assert_includes error.message, "Invalid date '20200230'"
   end
 end

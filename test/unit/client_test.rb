@@ -70,6 +70,44 @@ class ClientTest < Minitest::Test
     Rospatent.const_set(:Search, original_search_class)
   end
 
+  def test_search_method_passes_filter_parameter
+    # Arrange
+    client = Rospatent::Client.new
+    filter = { "application.filing_date" => { "range" => { "gte" => "20200101" } } }
+
+    # Mock the Search class to capture the parameters
+    original_search_class = Rospatent::Search
+
+    # Create a mock search class
+    mock_search_class = Class.new do
+      def initialize(client)
+        @client = client
+      end
+
+      def execute(**params)
+        # This is what we want to test - that the filter gets through
+        Thread.current[:captured_params] = params
+        "search result"
+      end
+    end
+
+    Rospatent.send(:remove_const, :Search)
+    Rospatent.const_set(:Search, mock_search_class)
+
+    # Act
+    client.search(q: "test", filter: filter)
+
+    # Assert
+    captured_params = Thread.current[:captured_params]
+    refute_nil captured_params, "Should have captured execute parameters"
+    assert_equal filter, captured_params[:filter], "Should pass filter parameter to search execute method"
+    assert_equal "test", captured_params[:q], "Should pass query parameter"
+
+    # Restore original class
+    Rospatent.send(:remove_const, :Search)
+    Rospatent.const_set(:Search, original_search_class)
+  end
+
   def test_post_with_connection_error
     # Arrange
     client = Rospatent::Client.new
@@ -824,9 +862,8 @@ class ClientTest < Minitest::Test
 
     # Test by directly stubbing the get method to verify binary flag is passed correctly
     get_called_with_binary = false
-    original_get = client.method(:get)
 
-    client.define_singleton_method(:get) do |path, params = {}, binary: false|
+    client.define_singleton_method(:get) do |_path, _params = {}, binary: false|
       get_called_with_binary = binary
       binary_data
     end
@@ -864,5 +901,93 @@ class ClientTest < Minitest::Test
       # Assert
       assert_equal pdf_binary_data, result, "Should return binary PDF data"
     end
+  end
+
+  def test_handle_response_extracts_rospatent_result_error
+    # Arrange
+    client = Rospatent::Client.new
+
+    # Create a simple stub object with correct response interface
+    mock_response = Struct.new(:success?, :status, :body, :headers).new(
+      false, 400, '{"result":"Search on unknown dataset requested."}', {}
+    )
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ApiError) do
+      client.send(:handle_response, mock_response, "test_request_id")
+    end
+
+    assert_includes error.message, "Search on unknown dataset requested.",
+                    "Should extract error message from 'result' field"
+    assert_includes error.message, "test_request_id",
+                    "Should include request ID in error message"
+  end
+
+  def test_handle_response_falls_back_to_error_field
+    # Arrange
+    client = Rospatent::Client.new
+
+    mock_response = Struct.new(:success?, :status, :body, :headers).new(
+      false, 400, '{"error":"Standard error message"}', {}
+    )
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ApiError) do
+      client.send(:handle_response, mock_response, "test_request_id")
+    end
+
+    assert_includes error.message, "Standard error message",
+                    "Should extract error message from 'error' field as fallback"
+  end
+
+  def test_handle_response_falls_back_to_message_field
+    # Arrange
+    client = Rospatent::Client.new
+
+    mock_response = Struct.new(:success?, :status, :body, :headers).new(
+      false, 400, '{"message":"Standard message field"}', {}
+    )
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ApiError) do
+      client.send(:handle_response, mock_response, "test_request_id")
+    end
+
+    assert_includes error.message, "Standard message field",
+                    "Should extract error message from 'message' field as fallback"
+  end
+
+  def test_handle_response_handles_non_json_response
+    # Arrange
+    client = Rospatent::Client.new
+
+    mock_response = Struct.new(:success?, :status, :body, :headers).new(
+      false, 500, "<html><body>Internal Server Error</body></html>", {}
+    )
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ApiError) do
+      client.send(:handle_response, mock_response, "test_request_id")
+    end
+
+    assert_includes error.message, "Internal Server Error",
+                    "Should use raw response body for non-JSON responses"
+  end
+
+  def test_handle_response_handles_malformed_json
+    # Arrange
+    client = Rospatent::Client.new
+
+    mock_response = Struct.new(:success?, :status, :body, :headers).new(
+      false, 400, '{"incomplete": json', {}
+    )
+
+    # Act & Assert
+    error = assert_raises(Rospatent::Errors::ApiError) do
+      client.send(:handle_response, mock_response, "test_request_id")
+    end
+
+    assert_includes error.message, '{"incomplete": json',
+                    "Should use raw response body for malformed JSON"
   end
 end

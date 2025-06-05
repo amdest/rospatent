@@ -150,7 +150,7 @@ module Rospatent
     # @param text [String] The text to find similar patents to (minimum 50 words required)
     # @param count [Integer] Maximum number of results to return (default: 100)
     # @return [Hash] The similar search results
-    # @raise [Rospatent::Errors::ValidationError] If text has insufficient words or other validation errors
+    # @raise [Rospatent::Errors::ValidationError] If text has insufficient words or errors
     def similar_patents_by_text(text, count: 100)
       # Validate inputs - text must have at least 50 words for the API
       validated_text = validate_text_with_word_count(text, "search_text", min_words: 50,
@@ -507,12 +507,13 @@ module Rospatent
         qn: { type: :string, max_length: 1000 },
         limit: { type: :positive_integer, min_value: 1, max_value: 100 },
         offset: { type: :positive_integer, min_value: 0, max_value: 10_000 },
-        pre_tag: { type: :string, max_length: 50 },
-        post_tag: { type: :string, max_length: 50 },
+        pre_tag: { type: :string_or_array, max_length: 50, max_size: 10 },
+        post_tag: { type: :string_or_array, max_length: 50, max_size: 10 },
         sort: { type: :enum, allowed_values: %i[relevance pub_date filing_date] },
-        group_by: { type: :enum, allowed_values: [:patent_family] },
+        group_by: { type: :string_enum, allowed_values: %w[family:docdb family:dwpi] },
         include_facets: { type: :boolean },
-        highlight: { type: :boolean },
+        highlight: { type: :hash },
+        filter: { type: :filter },
         datasets: { type: :array, max_size: 10 }
       }
 
@@ -632,7 +633,8 @@ module Rospatent
 
       error_msg = begin
         data = JSON.parse(response.body)
-        data["error"] || data["message"] || "Unknown error"
+        # Try different possible error message fields used by Rospatent API
+        data["result"] || data["error"] || data["message"] || "Unknown error"
       rescue JSON::ParserError
         response.body
       end
@@ -668,7 +670,8 @@ module Rospatent
       # For binary endpoints, error responses might still be JSON
       error_msg = begin
         data = JSON.parse(response.body)
-        data["error"] || data["message"] || "Unknown error"
+        # Try different possible error message fields used by Rospatent API
+        data["result"] || data["error"] || data["message"] || "Unknown error"
       rescue JSON::ParserError
         "Binary request failed"
       end
@@ -712,7 +715,8 @@ module Rospatent
     # @return [Hash] Field-specific validation errors
     def extract_validation_errors(response)
       data = JSON.parse(response.body)
-      data["errors"] || data["validation_errors"] || {}
+      # Check various possible validation error fields
+      data["errors"] || data["validation_errors"] || data["details"] || {}
     rescue JSON::ParserError
       {}
     end
