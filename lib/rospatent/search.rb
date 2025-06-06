@@ -45,7 +45,7 @@ module Rospatent
     # @param post_tag [String, Array<String>] HTML tag(s) to append to highlighted matches
     # @param sort [Symbol, String] Sort option (:relevance, :pub_date, :filing_date)
     # @param group_by [String] Grouping option ("family:docdb", "family:dwpi")
-    # @param include_facets [Boolean] Whether to include facet information
+    # @param include_facets [Boolean] Whether to include facet information (true/false, converted to 1/0 for API)
     # @param filter [Hash] Filters to apply to the search
     # @param datasets [Array<String>] Datasets to search within
     # @param highlight [Hash] Advanced highlight configuration with profiles
@@ -136,7 +136,16 @@ module Rospatent
       end
 
       # Validate boolean parameters (only if provided)
-      validated[:include_facets] = !params[:include_facets].nil? if params.key?(:include_facets)
+      if params.key?(:include_facets)
+        value = params[:include_facets]
+        # Convert various representations to boolean
+        validated[:include_facets] = case value
+                                     when nil then nil
+                                     when true, "true", "1", 1, "yes", "on" then true
+                                     when false, "false", "0", 0, "no", "off", "" then false
+                                     else !!value # For any other truthy values
+                                     end
+      end
 
       # Validate filter parameter
       validated[:filter] = validate_filter(params[:filter], "filter") if params[:filter]
@@ -181,7 +190,10 @@ module Rospatent
       payload[:group_by] = params[:group_by] if params[:group_by]
 
       # Add other parameters (only if explicitly provided)
-      payload[:include_facets] = params[:include_facets] if params.key?(:include_facets)
+      # Convert boolean to numeric format for API (true → 1, false → 0)
+      if params.key?(:include_facets)
+        payload[:include_facets] = params[:include_facets] ? 1 : 0
+      end
       payload[:filter] = params[:filter] if params[:filter]
       payload[:datasets] = params[:datasets] if params[:datasets]
 

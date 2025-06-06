@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-06-06
+
+### Fixed
+- **Include Facets Parameter Handling**: Fixed critical bug in `include_facets` parameter validation and API format conversion
+  - Fixed boolean validation logic that incorrectly converted `false` values to `true`
+  - Added proper boolean-to-numeric conversion for API compliance (true → 1, false → 0)
+  - Enhanced validation to handle various input formats ("true", "false", 0, 1, etc.)
+  - Updated documentation with conversion behavior notes
+- **Rails Logger Compatibility**: Fixed TypeError when using `Rails.logger` with `Rospatent::Logger`
+  - Added intelligent duck typing to detect existing logger instances vs IO objects
+  - `Rails.logger` can now be passed directly without creating wrapper Logger instances
+  - Maintains full compatibility with file paths, IO objects, and custom loggers
+  - Added comprehensive test coverage for Rails integration scenarios
+
+### Changed
+- Enhanced `Rospatent::Logger` to accept existing logger instances (Rails.logger, custom loggers) in addition to IO objects
+- Improved boolean parameter validation across the gem with better edge case handling
+- Updated README documentation with Rails.logger usage examples and boolean parameter conversion notes
+
+### Added
+- New comprehensive test suite for Logger class covering Rails integration scenarios
+- Test coverage for include_facets boolean-to-numeric conversion with various input types
+
 ## [1.3.0] - 2025-01-02
 
 ### Added

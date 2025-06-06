@@ -91,7 +91,7 @@ class SearchTest < Minitest::Test
       post_tag: "</mark>",
       sort: "publication_date:desc",
       group_by: "family:dwpi",
-      include_facets: true,
+      include_facets: 1,
       filter: filter,
       datasets: datasets,
       highlight: highlight
@@ -431,6 +431,120 @@ class SearchTest < Minitest::Test
     end
 
     assert_includes error.message, "Invalid group_by. Allowed values: family:docdb, family:dwpi"
+  end
+
+  def test_execute_with_include_facets_true
+    # Arrange - include_facets: true should convert to include_facets: 1 in API payload
+    expected_payload = {
+      q: "test",
+      include_facets: 1
+    }
+
+    response_data = { "total" => 0, "available" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    @search.execute(q: "test", include_facets: true)
+
+    # Assert
+    @client_mock.verify
+  end
+
+  def test_execute_with_include_facets_false
+    # Arrange - include_facets: false should convert to include_facets: 0 in API payload
+    expected_payload = {
+      q: "test",
+      include_facets: 0
+    }
+
+    response_data = { "total" => 0, "available" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    @search.execute(q: "test", include_facets: false)
+
+    # Assert
+    @client_mock.verify
+  end
+
+  def test_include_facets_validation_with_truthy_string_values
+    # Arrange - string "true" should convert to 1
+    expected_payload = {
+      q: "test",
+      include_facets: 1
+    }
+
+    response_data = { "total" => 0, "available" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    @search.execute(q: "test", include_facets: "true")
+
+    # Assert
+    @client_mock.verify
+  end
+
+  def test_include_facets_validation_with_numeric_one
+    # Arrange - numeric 1 should convert to 1
+    expected_payload = {
+      q: "test",
+      include_facets: 1
+    }
+
+    response_data = { "total" => 0, "available" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    @search.execute(q: "test", include_facets: 1)
+
+    # Assert
+    @client_mock.verify
+  end
+
+  def test_include_facets_validation_with_string_false
+    # Arrange - string "false" should convert to 0
+    expected_payload = {
+      q: "test",
+      include_facets: 0
+    }
+
+    response_data = { "total" => 0, "available" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    @search.execute(q: "test", include_facets: "false")
+
+    # Assert
+    @client_mock.verify
+  end
+
+  def test_include_facets_validation_with_numeric_zero
+    # Arrange - numeric 0 should convert to 0
+    expected_payload = {
+      q: "test",
+      include_facets: 0
+    }
+
+    response_data = { "total" => 0, "available" => 0, "hits" => [] }
+
+    # Mock expectations
+    @client_mock.expect :post, response_data, ["/patsearch/v0.2/search", expected_payload]
+
+    # Act
+    @search.execute(q: "test", include_facets: 0)
+
+    # Assert
+    @client_mock.verify
   end
 
   def test_filter_validation_with_valid_authors_filter

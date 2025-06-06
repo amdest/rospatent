@@ -15,7 +15,7 @@ A comprehensive Ruby client for the Rospatent patent search API with advanced fe
 - 📊 **Structured Logging** - JSON/text logging with request/response tracking
 - 🚀 **Batch Operations** - Process multiple patents concurrently
 - ⚙️ **Environment-Aware** - Different configurations for dev/staging/production
-- 🧪 **Comprehensive Testing** - 219 tests with 465 assertions, comprehensive integration testing
+- 🧪 **Comprehensive Testing** - 232 tests with 483 assertions, comprehensive integration testing
 - 📚 **Excellent Documentation** - Detailed examples and API documentation
 
 ## Installation
@@ -270,7 +270,7 @@ results = client.search(
   },
   sort: "publication_date:desc", # same as 'sort: :pub_date'; see Search#validate_sort_parameter for other sort options
   group_by: "family:dwpi",         # Patent family grouping: "family:docdb" or "family:dwpi"
-  include_facets: true,
+  include_facets: true,            # Boolean: true/false (automatically converted to 1/0 for API)
   pre_tag: "<mark>",           # Both pre_tag and post_tag must be provided together
   post_tag: "</mark>",         # Can be strings or arrays for multi-color highlighting
   highlight: {                 # Advanced highlight configuration (independent of pre_tag/post_tag)
@@ -1101,7 +1101,7 @@ $ bundle exec rake release
 - 📊 **Структурированное логирование** - JSON/текстовое логирование с отслеживанием запросов/ответов
 - 🚀 **Пакетные операции** - параллельная обработка множества патентов
 - ⚙️ **Адаптивные окружения** - различные конфигурации для development/staging/production
-- 🧪 **Комплексное тестирование** - 219 тестов с 465 проверками, комплексное интеграционное тестирование
+- 🧪 **Комплексное тестирование** - 232 теста с 483 проверками, комплексное интеграционное тестирование
 - 📚 **Отличная документация** - подробные примеры и документация API
 
 ## Установка
@@ -1353,7 +1353,7 @@ results = client.search(
   },
   sort: "publication_date:desc", # то же самое, что 'sort: :pub_date'; см. варианты параметров сортировки в Search#validate_sort_parameter
   group_by: "family:dwpi",       # Группировка по семействам: "family:docdb" или "family:dwpi"
-  include_facets: true,
+  include_facets: true,          # Boolean: true/false (автоматически конвертируется в 1/0 для API)
   pre_tag: "<mark>",             # Оба тега должны быть указаны вместе
   post_tag: "</mark>",           # Могут быть строками или массивами
   highlight: {                   # Продвинутая настройка подсветки (независимо от тегов)

@@ -18,20 +18,30 @@ module Rospatent
     attr_reader :logger, :level
 
     # Initialize a new logger
-    # @param output [IO, String] Output destination (STDOUT, file path, etc.)
+    # @param output [IO, String, Logger] Output destination (STDOUT, file path, existing logger, etc.)
     # @param level [Symbol] Log level (:debug, :info, :warn, :error, :fatal)
     # @param formatter [Symbol] Log format (:json, :text)
     def initialize(output: $stdout, level: :info, formatter: :text)
-      @logger = ::Logger.new(output)
       @level = level
-      @logger.level = LEVELS[level] || ::Logger::INFO
 
-      @logger.formatter = case formatter
-                          when :json
-                            method(:json_formatter)
-                          else
-                            method(:text_formatter)
-                          end
+      # Handle different types of output
+      @logger = if output.respond_to?(:debug) && output.respond_to?(:info) && output.respond_to?(:error)
+                  # If it's already a logger instance (like Rails.logger), use it directly
+                  output
+                else
+                  # If it's an IO object or file path, create a new Logger
+                  new_logger = ::Logger.new(output)
+                  new_logger.formatter = case formatter
+                                         when :json
+                                           method(:json_formatter)
+                                         else
+                                           method(:text_formatter)
+                                         end
+                  new_logger
+                end
+
+      # Set the log level
+      @logger.level = LEVELS[level] || ::Logger::INFO
     end
 
     # Log an API request
