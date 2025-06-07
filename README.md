@@ -676,6 +676,10 @@ client = Rospatent.client(logger: logger)
 shared_logger = Rospatent.shared_logger(level: :debug)
 ```
 
+**Notes**:
+- When using `Rails.logger`, formatting is controlled by Rails configuration, `formatter` parameter ignored
+- When using IO objects, `formatter` parameter controls output format
+
 ### Error Handling
 
 Comprehensive error handling with specific error types and improved error message extraction:
@@ -1757,6 +1761,10 @@ client = Rospatent.client(logger: logger)
 # Доступ к общему логгеру
 shared_logger = Rospatent.shared_logger(level: :debug)
 ```
+
+**Комментарии**:
+- При использовании `Rails.logger`, форматирование контролируется конфигурацией Rails, параметр `formatter` игнорируется
+- При использовании IO объекта, формат определяется параметром `formatter`
 
 ### Обработка ошибок
 
