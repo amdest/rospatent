@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-06-09
+
+### Added
+- **Optional Filename Parameter**: Enhanced `patent_media` and `patent_media_by_id` methods with optional filename parameter
+  - Auto-generated filenames using formatted publication number + ".pdf" extension (e.g., "0000134694.pdf")
+  - Leverages existing `format_publication_number` logic for reliable API compatibility
+  - Provides convenient default behavior while maintaining full backward compatibility
+- **Safe Binary File Handling**: New `save_binary_file` method for proper encoding of binary data
+  - Ensures binary data (PDFs, images, etc.) is written correctly with ASCII-8BIT encoding
+  - Prevents encoding conversion errors when saving media files
+  - Includes comprehensive documentation and examples
+
+### Fixed
+- **Binary Data Encoding Issues**: Enhanced `handle_binary_response` method to properly handle binary data encoding
+  - Forces ASCII-8BIT encoding to prevent UTF-8 conversion errors
+  - Resolves `Encoding::UndefinedConversionError` when saving PDF and image files
+  - Maintains proper binary data integrity throughout the request lifecycle
+
+### Changed
+- **Enhanced Media Method Documentation**: Updated documentation with auto-generated filename examples
+  - Added examples showing both convenience (auto-filename) and explicit filename approaches
+  - Enhanced code examples in both English and Russian README sections
+  - Improved documentation structure with clear usage recommendations
+- **Comprehensive Test Coverage**: Enhanced test suite with auto-generated filename functionality
+  - Added specific tests for optional filename parameter behavior
+  - Updated existing tests to accommodate new method signatures
+  - Enhanced integration tests with fallback filename strategies
+- **README Improvements**: Updated Key Features section to remove hardcoded test counts
+  - Replaced specific numbers with qualitative descriptions of testing coverage
+  - Improved maintainability by removing numbers that become outdated quickly
+  - Enhanced focus on testing quality rather than raw metrics
+
 ## [1.3.2] - 2025-06-07
 
 ### Added

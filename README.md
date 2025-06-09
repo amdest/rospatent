@@ -15,7 +15,7 @@ A comprehensive Ruby client for the Rospatent patent search API with advanced fe
 - 📊 **Structured Logging** - JSON/text logging with request/response tracking
 - 🚀 **Batch Operations** - Process multiple patents concurrently
 - ⚙️ **Environment-Aware** - Different configurations for dev/staging/production
-- 🧪 **Comprehensive Testing** - 232 tests with 483 assertions, comprehensive integration testing
+- 🧪 **Comprehensive Testing** - Extensive unit and integration test coverage with robust error handling validation
 - 📚 **Excellent Documentation** - Detailed examples and API documentation
 
 ## Installation
@@ -583,23 +583,48 @@ end
 ### Media and Documents
 
 ```ruby
-# Download patent PDF
+# ✅ Recommended: Download patent PDF with auto-generated filename
+# Automatically uses the formatted publication number (e.g., "0000134694.pdf")
+pdf_data = client.patent_media(
+  "National",       # collection_id
+  "RU",             # country_code
+  "U1",             # doc_type
+  "2013/11/20",     # pub_date
+  "134694"          # pub_number (filename auto-generated)
+)
+client.save_binary_file(pdf_data, "patent.pdf")
+
+# ✅ Alternative: Download with explicit filename
 pdf_data = client.patent_media(
   "National",       # collection_id
   "RU",             # country_code
   "U1",             # doc_type
   "2013/11/20",     # pub_date
   "134694",         # pub_number
-  "document.pdf"    # filename
+  "document.pdf"    # explicit filename
 )
-File.write("patent.pdf", pdf_data)
+client.save_binary_file(pdf_data, "patent_explicit.pdf")
 
-# Simplified method using patent ID
+# ✅ Simplified method using patent ID (auto-generated filename)
 pdf_data = client.patent_media_by_id(
   "RU134694U1_20131120",
-  "National",
-  "document.pdf"
+  "National"  # filename auto-generated as "0000134694.pdf"
 )
+client.save_binary_file(pdf_data, "patent_by_id.pdf")
+
+# ✅ Or with explicit filename for specific files
+image_data = client.patent_media_by_id(
+  "RU134694U1_20131120", 
+  "National", 
+  "image.png"  # explicit filename for non-PDF files
+)
+client.save_binary_file(image_data, "patent_image.png")
+
+# ✅ Safe file saving options:
+File.binwrite("patent.pdf", pdf_data)  # Manual binary write
+
+# ❌ Avoid: File.write can cause encoding errors with binary data
+# File.write("patent.pdf", pdf_data)  # This may fail!
 ```
 
 ## Advanced Features
@@ -1105,7 +1130,7 @@ $ bundle exec rake release
 - 📊 **Структурированное логирование** - JSON/текстовое логирование с отслеживанием запросов/ответов
 - 🚀 **Пакетные операции** - параллельная обработка множества патентов
 - ⚙️ **Адаптивные окружения** - различные конфигурации для development/staging/production
-- 🧪 **Комплексное тестирование** - 232 теста с 483 проверками, комплексное интеграционное тестирование
+- 🧪 **Комплексное тестирование** - Обширное покрытие модульными и интеграционными тестами с валидацией обработки ошибок
 - 📚 **Отличная документация** - подробные примеры и документация API
 
 ## Установка
@@ -1669,23 +1694,48 @@ end
 ### Медиафайлы и документы
 
 ```ruby
-# Скачивание PDF патента
+# ✅ Рекомендуется: Скачивание PDF патента с автоматически генерируемым именем файла
+# Автоматически использует отформатированный номер публикации (например, "0000134694.pdf")
+pdf_data = client.patent_media(
+  "National",       # collection_id
+  "RU",             # country_code
+  "U1",             # doc_type
+  "2013/11/20",     # pub_date
+  "134694"          # pub_number (имя файла генерируется автоматически)
+)
+client.save_binary_file(pdf_data, "patent.pdf")
+
+# ✅ Альтернатива: Скачивание с явным указанием имени файла
 pdf_data = client.patent_media(
   "National",       # collection_id
   "RU",             # country_code
   "U1",             # doc_type
   "2013/11/20",     # pub_date
   "134694",         # pub_number
-  "document.pdf"    # filename
+  "document.pdf"    # явное имя файла
 )
-File.write("patent.pdf", pdf_data)
+client.save_binary_file(pdf_data, "patent_explicit.pdf")
 
-# Упрощенный метод с использованием ID патента
+# ✅ Упрощенный метод с использованием ID патента (автогенерируемое имя)
 pdf_data = client.patent_media_by_id(
   "RU134694U1_20131120",
-  "National",
-  "document.pdf"
+  "National"  # имя файла автоматически генерируется как "0000134694.pdf"
 )
+client.save_binary_file(pdf_data, "patent_by_id.pdf")
+
+# ✅ Или с явным именем файла для конкретных файлов
+image_data = client.patent_media_by_id(
+  "RU134694U1_20131120", 
+  "National", 
+  "image.png"  # явное имя файла для файлов не-PDF
+)
+client.save_binary_file(image_data, "patent_image.png")
+
+# ✅ Варианты безопасного сохранения файлов:
+File.binwrite("patent.pdf", pdf_data)  # Ручная бинарная запись
+
+# ❌ Избегайте: File.write может вызвать ошибки кодировки с бинарными данными
+# File.write("patent.pdf", pdf_data)  # Это может не сработать!
 ```
 
 ## Расширенные возможности

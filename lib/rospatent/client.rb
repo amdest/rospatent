@@ -214,24 +214,36 @@ module Rospatent
     # @param doc_type [String] Document type code (e.g., "U1")
     # @param pub_date [String, Date] Publication date in format YYYY/MM/DD
     # @param pub_number [String] Publication number
-    # @param filename [String] Media file name (e.g., "document.pdf")
-    # @return [String] Binary content of the requested file
+    # @param filename [String, nil] Media file name (optional, defaults to "<formatted_number>.pdf")
+    # @return [String] Binary content with ASCII-8BIT encoding
     # @raise [Rospatent::Errors::InvalidRequestError] If any required parameter is missing
+    # @example Retrieve and save a PDF with auto-generated filename
+    #   pdf_data = client.patent_media("National", "RU", "U1", "2013/11/20", "134694")
+    #   client.save_binary_file(pdf_data, "patent.pdf")
+    # @example Retrieve and save a specific file
+    #   pdf_data = client.patent_media("National", "RU", "U1", "2013/11/20", "134694", "document.pdf")
+    #   client.save_binary_file(pdf_data, "patent.pdf")
     def patent_media(collection_id, country_code, doc_type, pub_date, pub_number,
-                     filename)
+                     filename = nil)
       # Validate and normalize inputs
       validated_collection = validate_required_string(collection_id, "collection_id")
       validated_country = validate_required_string(country_code, "country_code", max_length: 2)
       validated_doc_type = validate_required_string(doc_type, "doc_type", max_length: 3)
       validated_date = validate_required_date(pub_date, "pub_date")
       validated_number = validate_required_string(pub_number, "pub_number")
-      validated_filename = validate_required_string(filename, "filename")
 
       # Format publication date
       formatted_date = validated_date.strftime("%Y/%m/%d")
 
       # Format publication number with appropriate padding
       formatted_number = format_publication_number(validated_number, validated_country)
+
+      # Generate default filename if not provided
+      validated_filename = if filename.nil?
+                             "#{formatted_number}.pdf"
+                           else
+                             validate_required_string(filename, "filename")
+                           end
 
       # Construct the path
       path = "/media/#{validated_collection}/#{validated_country}/" \
@@ -245,15 +257,23 @@ module Rospatent
     # Retrieve media using simplified patent ID format
     # @param document_id [String] Patent document ID (e.g., "RU134694U1_20131120")
     # @param collection_id [String] Collection identifier (e.g., "National")
-    # @param filename [String] Filename to retrieve (e.g., "document.pdf")
-    # @return [String] Binary content of the requested file
+    # @param filename [String, nil] Filename to retrieve (optional, defaults to "<formatted_number>.pdf")
+    # @return [String] Binary content with ASCII-8BIT encoding
     # @raise [Rospatent::Errors::InvalidRequestError] If document_id format is invalid
     #   or parameters are missing
-    def patent_media_by_id(document_id, collection_id, filename)
+    # @example Retrieve and save a PDF with auto-generated filename
+    #   pdf_data = client.patent_media_by_id("RU134694U1_20131120", "National")
+    #   client.save_binary_file(pdf_data, "patent.pdf")
+    # @example Retrieve and save a specific file
+    #   pdf_data = client.patent_media_by_id("RU134694U1_20131120", "National", "document.pdf")
+    #   client.save_binary_file(pdf_data, "patent.pdf")
+    def patent_media_by_id(document_id, collection_id, filename = nil)
       # Validate inputs
       validated_id = validate_patent_id(document_id)
       validated_collection = validate_required_string(collection_id, "collection_id")
-      validated_filename = validate_required_string(filename, "filename")
+
+      # Validate filename if provided
+      validated_filename = filename ? validate_required_string(filename, "filename") : nil
 
       # Parse the patent ID to extract components
       id_parts = parse_patent_id(validated_id)
@@ -261,12 +281,10 @@ module Rospatent
       # Format the date from YYYYMMDD to YYYY/MM/DD
       formatted_date = id_parts[:date].gsub(/^(\d{4})(\d{2})(\d{2})$/, '\1/\2/\3')
 
-      # Format publication number with appropriate padding
-      formatted_number = format_publication_number(id_parts[:number], id_parts[:country_code])
-
       # Call the base method with extracted components
+      # If no filename provided, patent_media will generate default using format_publication_number
       patent_media(validated_collection, id_parts[:country_code], id_parts[:doc_type],
-                   formatted_date, formatted_number, validated_filename)
+                   formatted_date, id_parts[:number], validated_filename)
     end
 
     # Extract and parse the abstract content from a patent document
@@ -496,6 +514,29 @@ module Rospatent
       }
     end
 
+    # Save binary data to a file with proper encoding handling
+    # This method ensures that binary data (PDFs, images, etc.) is written correctly
+    # @param binary_data [String] Binary data returned from patent_media methods
+    # @param file_path [String] Path where to save the file
+    # @return [Integer] Number of bytes written
+    # @raise [SystemCallError] If file cannot be written
+    # @example Save a PDF file with auto-generated filename
+    #   pdf_data = client.patent_media_by_id("RU134694U1_20131120", "National")
+    #   client.save_binary_file(pdf_data, "patent.pdf")
+    # @example Save a specific file
+    #   pdf_data = client.patent_media_by_id("RU134694U1_20131120", "National", "document.pdf")
+    #   client.save_binary_file(pdf_data, "patent.pdf")
+    def save_binary_file(binary_data, file_path)
+      validate_required_string(binary_data, "binary_data")
+      validate_required_string(file_path, "file_path")
+
+      # Ensure data is properly encoded as binary
+      data_to_write = binary_data.dup.force_encoding(Encoding::ASCII_8BIT)
+
+      # Write in binary mode to prevent any encoding conversions
+      File.binwrite(file_path, data_to_write)
+    end
+
     private
 
     # Validate search parameters
@@ -662,10 +703,15 @@ module Rospatent
     # Process binary API response (for media files)
     # @param response [Faraday::Response] Raw response from the API
     # @param request_id [String] Request ID for tracking
-    # @return [String] Binary response data
+    # @return [String] Binary response data with proper encoding
     # @raise [Rospatent::Errors::ApiError] If the response is not successful
     def handle_binary_response(response, request_id = nil)
-      return response.body if response.success?
+      if response.success?
+        # Ensure binary data is properly encoded as ASCII-8BIT to prevent encoding issues
+        binary_data = response.body.dup
+        binary_data.force_encoding(Encoding::ASCII_8BIT)
+        return binary_data
+      end
 
       # For binary endpoints, error responses might still be JSON
       error_msg = begin

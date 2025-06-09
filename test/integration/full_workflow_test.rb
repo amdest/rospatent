@@ -105,19 +105,33 @@ class FullWorkflowTest < Minitest::Test
     skip "No valid patent ID for media testing" unless test_patent_id
 
     begin
-      # Try to get PDF document
+      # Try to get PDF document with auto-generated filename first
       pdf_data = @client.patent_media_by_id(
         test_patent_id,
-        "National",
-        "document.pdf"
+        "National"
       )
 
       assert pdf_data, "PDF data should be retrieved"
       assert pdf_data.is_a?(String), "PDF data should be binary string"
       assert_operator pdf_data.length, :>, 0, "PDF should have content"
+      puts "✓ Successfully retrieved PDF with auto-generated filename"
     rescue Rospatent::Errors::NotFoundError
-      # Media file might not exist for this patent, which is acceptable
-      puts "Note: Media file not found for patent #{test_patent_id}"
+      begin
+        # Fallback to explicit document.pdf filename
+        pdf_data = @client.patent_media_by_id(
+          test_patent_id,
+          "National",
+          "document.pdf"
+        )
+
+        assert pdf_data, "PDF data should be retrieved"
+        assert pdf_data.is_a?(String), "PDF data should be binary string"
+        assert_operator pdf_data.length, :>, 0, "PDF should have content"
+        puts "✓ Successfully retrieved PDF with explicit filename"
+      rescue Rospatent::Errors::NotFoundError
+        # Media file might not exist for this patent, which is acceptable
+        puts "Note: Media file not found for patent #{test_patent_id}"
+      end
     end
   rescue JSON::ParserError, Rospatent::Errors::ApiError => e
     skip "Datasets endpoint not available or returns invalid response (#{e.class}: #{e.message})"

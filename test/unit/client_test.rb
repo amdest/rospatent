@@ -563,8 +563,9 @@ class ClientTest < Minitest::Test
       client.patent_media("National", "RU", "U1", "2013/11/20", nil, "document.pdf")
     end
 
-    assert_raises(Rospatent::Errors::ValidationError, "Should validate filename") do
-      client.patent_media("National", "RU", "U1", "2013/11/20", "134694", nil)
+    # Filename is now optional, so we test validation when explicitly providing empty string
+    assert_raises(Rospatent::Errors::ValidationError, "Should validate filename when provided as empty string") do
+      client.patent_media("National", "RU", "U1", "2013/11/20", "134694", "")
     end
   end
 
@@ -618,12 +619,64 @@ class ClientTest < Minitest::Test
       client.patent_media_by_id(document_id, nil, "document.pdf")
     end
 
-    assert_raises(Rospatent::Errors::ValidationError, "Should validate filename") do
-      client.patent_media_by_id(document_id, "National", nil)
+    # Filename is now optional, so we test validation when explicitly providing empty string
+    assert_raises(Rospatent::Errors::ValidationError, "Should validate filename when provided as empty string") do
+      client.patent_media_by_id(document_id, "National", "")
     end
 
     assert_raises(Rospatent::Errors::ValidationError, "Should validate document_id") do
       client.patent_media_by_id("", "National", "document.pdf")
+    end
+  end
+
+  def test_patent_media_with_auto_generated_filename
+    # Arrange
+    client = Rospatent::Client.new
+    collection_id = "National"
+    country_code = "RU"
+    doc_type = "U1"
+    pub_date = "2013/11/20"
+    pub_number = "134694"
+    expected_pdf_content = "PDF binary content"
+    # Auto-generated filename should be the formatted number + .pdf
+    expected_path = "/media/National/RU/U1/2013/11/20/0000134694/0000134694.pdf"
+
+    # Mock the get method
+    client.stub :get, lambda { |endpoint, params = {}, binary: false|
+      assert_equal expected_path, endpoint, "Should construct path with auto-generated filename"
+      assert_equal({}, params, "Should pass empty params")
+      assert binary, "Should request binary data for media"
+      expected_pdf_content
+    } do
+      # Act - Call without filename parameter
+      result = client.patent_media(collection_id, country_code, doc_type, pub_date, pub_number)
+
+      # Assert
+      assert_equal expected_pdf_content, result, "Should return the PDF content"
+    end
+  end
+
+  def test_patent_media_by_id_with_auto_generated_filename
+    # Arrange
+    client = Rospatent::Client.new
+    document_id = "RU134694U1_20131120"
+    collection_id = "National"
+    expected_content = "PDF binary content"
+    # Auto-generated filename should be the formatted number + .pdf
+    expected_path = "/media/National/RU/U1/2013/11/20/0000134694/0000134694.pdf"
+
+    # Mock the get method
+    client.stub :get, lambda { |endpoint, params = {}, binary: false|
+      assert_equal expected_path, endpoint, "Should construct path with auto-generated filename from patent ID"
+      assert_equal({}, params, "Should pass empty params")
+      assert binary, "Should request binary data for media"
+      expected_content
+    } do
+      # Act - Call without filename parameter
+      result = client.patent_media_by_id(document_id, collection_id)
+
+      # Assert
+      assert_equal expected_content, result, "Should return the media content"
     end
   end
 
