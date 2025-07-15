@@ -97,8 +97,8 @@ module Rospatent
       validated = {}
 
       # Validate query parameters
-      validated[:q] = validate_string(params[:q], "q", max_length: 1000) if params[:q]
-      validated[:qn] = validate_string(params[:qn], "qn", max_length: 1000) if params[:qn]
+      validated[:q] = validate_string(params[:q], "q", max_length: 2000) if params[:q]
+      validated[:qn] = validate_string(params[:qn], "qn", max_length: 2000) if params[:qn]
 
       # Validate pagination parameters (only if provided)
       if params[:limit]
