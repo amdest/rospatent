@@ -544,8 +544,8 @@ module Rospatent
     # @return [Hash] Validated parameters
     def validate_search_params(params)
       validations = {
-        q: { type: :string, max_length: 1000 },
-        qn: { type: :string, max_length: 1000 },
+        q: { type: :string, max_length: 2000 },
+        qn: { type: :string, max_length: 2000 },
         limit: { type: :positive_integer, min_value: 1, max_value: 100 },
         offset: { type: :positive_integer, min_value: 0, max_value: 10_000 },
         pre_tag: { type: :string_or_array, max_length: 50, max_size: 10 },
