@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-06-09
+
+### Added
+- **Configurable Validation Limits**: Major enhancement to configuration system with customizable validation thresholds
+  - New `validation_limits` hash in configuration with 16 configurable parameters
+  - Users can now customize query length limits, pagination limits, array sizes, and more
+  - Fine-grained control over validation behavior without code modifications
+  - Environment-specific validation tuning support
+- **Comprehensive Validation Configuration**: All validation limits now centralized and configurable
+  - Query parameters: `query_max_length`, `natural_query_max_length` (default: 2000)
+  - Pagination: `limit_max_value` (default: 100), `offset_max_value` (default: 10,000)
+  - Arrays: `array_max_size` (default: 10), various tag limits
+  - Classification: `classification_query_max_length`, `classification_code_max_length`
+  - Similar search: `similar_text_min_words`, `similar_text_max_length`, `similar_count_max_value`
+  - Batch operations: `batch_size_max_value`, `batch_ids_max_size`
+
+### Changed
+- **Consolidated Validation Logic**: Eliminated code duplication by centralizing validation in Search class
+  - Removed duplicate validation limits from Client class
+  - All validation now happens in single location (Search class)
+  - Improved maintainability and reduced code duplication
+- **Enhanced Configuration System**: Extended configuration to support nested validation limits
+  - Configuration now supports hash-based validation limits
+  - All validation methods updated to use configurable limits
+  - Backward compatible configuration structure
+
+### Deprecated
+- **Client#validate_search_params**: Method deprecated in favor of centralized validation
+  - Method now returns parameters as-is for backward compatibility
+  - Validation responsibility moved to Search class
+  - Marked with deprecation notice for future removal
+
+### Fixed
+- **Validation Duplication**: Resolved issue where validation limits were hardcoded in multiple places
+  - Single source of truth for validation configuration
+  - Easier maintenance when API specifications change
+  - Consistent validation behavior across all methods
+
 ## [1.4.2] - 2025-07-15
 
 ## Fixed

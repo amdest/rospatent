@@ -35,9 +35,8 @@ module Rospatent
     # @param params [Hash] Search parameters
     # @return [Rospatent::SearchResult] Search result object
     def search(**params)
-      # Validate search parameters
-      validated_params = validate_search_params(params)
-      Search.new(self).execute(**validated_params)
+      # Validation is now handled by Search class to avoid duplication
+      Search.new(self).execute(**params)
     end
 
     # Fetch a specific patent by its document ID using dedicated endpoint
@@ -117,7 +116,7 @@ module Rospatent
     def similar_patents_by_id(document_id, count: 100)
       # Validate inputs
       validated_id = validate_patent_id(document_id)
-      validated_count = validate_positive_integer(count, "count", max_value: 1000)
+      validated_count = validate_positive_integer(count, "count", max_value: Rospatent.configuration.validation_limits[:similar_count_max_value])
 
       # Check cache first
       cache_key = "similar:id:#{validated_id}:#{validated_count}"
@@ -153,9 +152,10 @@ module Rospatent
     # @raise [Rospatent::Errors::ValidationError] If text has insufficient words or errors
     def similar_patents_by_text(text, count: 100)
       # Validate inputs - text must have at least 50 words for the API
-      validated_text = validate_text_with_word_count(text, "search_text", min_words: 50,
-                                                                          max_length: 10_000)
-      validated_count = validate_positive_integer(count, "count", max_value: 1000)
+              validated_text = validate_text_with_word_count(text, "search_text",
+                                                        min_words: Rospatent.configuration.validation_limits[:similar_text_min_words],
+                                                        max_length: Rospatent.configuration.validation_limits[:similar_text_max_length])
+        validated_count = validate_positive_integer(count, "count", max_value: Rospatent.configuration.validation_limits[:similar_count_max_value])
 
       # Check cache first (using hash of text for key)
       text_hash = validated_text.hash.abs.to_s(16)
@@ -337,7 +337,7 @@ module Rospatent
     def classification_search(classifier_id, query:, lang: "ru")
       # Validate inputs
       validated_classifier = validate_enum(classifier_id, %w[ipc cpc], "classifier_id").to_s
-      validated_query = validate_string(query, "query", max_length: 1000)
+      validated_query = validate_string(query, "query", max_length: Rospatent.configuration.validation_limits[:classification_query_max_length])
       validated_lang = validate_enum(lang, %w[ru en], "lang").to_s
 
       # Check cache first
@@ -378,7 +378,7 @@ module Rospatent
     def classification_code(classifier_id, code:, lang: "ru")
       # Validate inputs
       validated_classifier = validate_enum(classifier_id, %w[ipc cpc], "classifier_id").to_s
-      validated_code = validate_string(code, "code", max_length: 50)
+      validated_code = validate_string(code, "code", max_length: Rospatent.configuration.validation_limits[:classification_code_max_length])
       validated_lang = validate_enum(lang, %w[ru en], "lang").to_s
 
       # Check cache first
@@ -482,8 +482,8 @@ module Rospatent
     def batch_patents(document_ids, batch_size: 10)
       return enum_for(:batch_patents, document_ids, batch_size: batch_size) unless block_given?
 
-      validate_array(document_ids, "document_ids", max_size: 1000)
-      validated_batch_size = validate_positive_integer(batch_size, "batch_size", max_value: 50)
+      validate_array(document_ids, "document_ids", max_size: Rospatent.configuration.validation_limits[:batch_ids_max_size])
+      validated_batch_size = validate_positive_integer(batch_size, "batch_size", max_value: Rospatent.configuration.validation_limits[:batch_size_max_value])
 
       document_ids.each_slice(validated_batch_size) do |batch|
         threads = batch.map do |doc_id|
@@ -542,23 +542,11 @@ module Rospatent
     # Validate search parameters
     # @param params [Hash] Search parameters to validate
     # @return [Hash] Validated parameters
+    # @deprecated This method is deprecated. Validation now happens in Search class.
     def validate_search_params(params)
-      validations = {
-        q: { type: :string, max_length: 2000 },
-        qn: { type: :string, max_length: 2000 },
-        limit: { type: :positive_integer, min_value: 1, max_value: 100 },
-        offset: { type: :positive_integer, min_value: 0, max_value: 10_000 },
-        pre_tag: { type: :string_or_array, max_length: 50, max_size: 10 },
-        post_tag: { type: :string_or_array, max_length: 50, max_size: 10 },
-        sort: { type: :enum, allowed_values: %i[relevance pub_date filing_date] },
-        group_by: { type: :string_enum, allowed_values: %w[family:docdb family:dwpi] },
-        include_facets: { type: :boolean },
-        highlight: { type: :hash },
-        filter: { type: :filter },
-        datasets: { type: :array, max_size: 10 }
-      }
-
-      validate_params(params, validations)
+      # Validation is now handled by Search class to avoid duplication
+      # This method remains for backward compatibility but does no validation
+      params
     end
 
     # Parse a patent ID string into its component parts

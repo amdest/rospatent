@@ -11,7 +11,7 @@ A comprehensive Ruby client for the Rospatent patent search API with advanced fe
 - 🔍 **Complete API Coverage** - Search, retrieve patents, media files, and datasets
 - 🛡️ **Robust Error Handling** - Comprehensive error types with detailed context
 - ⚡ **Intelligent Caching** - In-memory caching with TTL and LRU eviction
-- ✅ **Input Validation** - Automatic parameter validation with helpful error messages
+- ✅ **Input Validation** - Automatic parameter validation with configurable limits and helpful error messages
 - 📊 **Structured Logging** - JSON/text logging with request/response tracking
 - 🚀 **Batch Operations** - Process multiple patents concurrently
 - ⚙️ **Environment-Aware** - Different configurations for dev/staging/production
@@ -100,6 +100,56 @@ Rospatent.configure do |config|
   config.token_refresh_callback = -> { refresh_token! }
 end
 ```
+
+### Validation Limits Configuration
+
+Customize validation thresholds for different parameters to suit your specific needs:
+
+```ruby
+Rospatent.configure do |config|
+  config.token = "your_jwt_token"
+
+  # Customize validation limits
+  config.validation_limits = {
+    # Query parameters
+    query_max_length: 5000,              # Default: 2000
+    natural_query_max_length: 3000,      # Default: 2000
+    
+    # Pagination limits
+    limit_max_value: 200,                # Default: 100
+    offset_max_value: 50_000,            # Default: 10,000
+    
+    # Array and string limits
+    array_max_size: 20,                  # Default: 10
+    string_max_length: 2000,             # Default: 1000
+    
+    # Highlighting limits
+    pre_tag_max_length: 100,             # Default: 50
+    post_tag_max_length: 100,            # Default: 50
+    pre_tag_max_size: 20,                # Default: 10
+    post_tag_max_size: 20,               # Default: 10
+    
+    # Classification search limits
+    classification_query_max_length: 2000,  # Default: 1000
+    classification_code_max_length: 100,     # Default: 50
+    
+    # Similar search limits
+    similar_text_min_words: 30,          # Default: 50
+    similar_text_max_length: 20_000,     # Default: 10,000
+    similar_count_max_value: 2000,       # Default: 1000
+    
+    # Batch operation limits
+    batch_size_max_value: 100,           # Default: 50
+    batch_ids_max_size: 2000             # Default: 1000
+  }
+end
+```
+
+**Benefits of configurable validation limits:**
+- **Flexibility**: Adjust limits based on your application's requirements
+- **Performance**: Fine-tune validation for optimal performance
+- **API Evolution**: Easily adapt to changes in Rospatent API specifications
+- **Environment-specific**: Different limits for development, staging, and production
 
 ### Environment-Specific Configuration
 
@@ -1126,7 +1176,7 @@ $ bundle exec rake release
 - 🔍 **Полное покрытие API** - поиск, получение патентов, медиафайлы и датасеты
 - 🛡️ **Надежная обработка ошибок** - комплексные типы ошибок с детальным контекстом
 - ⚡ **Интеллектуальное кеширование** - кеширование в памяти с TTL и LRU исключением
-- ✅ **Валидация входных данных** - автоматическая валидация параметров с полезными сообщениями
+- ✅ **Валидация входных данных** - автоматическая валидация параметров с настраиваемыми лимитами и полезными сообщениями
 - 📊 **Структурированное логирование** - JSON/текстовое логирование с отслеживанием запросов/ответов
 - 🚀 **Пакетные операции** - параллельная обработка множества патентов
 - ⚙️ **Адаптивные окружения** - различные конфигурации для development/staging/production
@@ -1214,6 +1264,56 @@ Rospatent.configure do |config|
   config.token_refresh_callback = -> { refresh_token! }
 end
 ```
+
+### Конфигурация лимитов валидации
+
+Настройте пороговые значения валидации для различных параметров в соответствии с вашими потребностями:
+
+```ruby
+Rospatent.configure do |config|
+  config.token = "ваш_jwt_токен"
+
+  # Настройка лимитов валидации
+  config.validation_limits = {
+    # Параметры запросов
+    query_max_length: 5000,              # По умолчанию: 2000
+    natural_query_max_length: 3000,      # По умолчанию: 2000
+    
+    # Лимиты пагинации
+    limit_max_value: 200,                # По умолчанию: 100
+    offset_max_value: 50_000,            # По умолчанию: 10,000
+    
+    # Лимиты массивов и строк
+    array_max_size: 20,                  # По умолчанию: 10
+    string_max_length: 2000,             # По умолчанию: 1000
+    
+    # Лимиты подсветки
+    pre_tag_max_length: 100,             # По умолчанию: 50
+    post_tag_max_length: 100,            # По умолчанию: 50
+    pre_tag_max_size: 20,                # По умолчанию: 10
+    post_tag_max_size: 20,               # По умолчанию: 10
+    
+    # Лимиты поиска по классификации
+    classification_query_max_length: 2000,  # По умолчанию: 1000
+    classification_code_max_length: 100,     # По умолчанию: 50
+    
+    # Лимиты поиска похожих патентов
+    similar_text_min_words: 30,          # По умолчанию: 50
+    similar_text_max_length: 20_000,     # По умолчанию: 10,000
+    similar_count_max_value: 2000,       # По умолчанию: 1000
+    
+    # Лимиты пакетных операций
+    batch_size_max_value: 100,           # По умолчанию: 50
+    batch_ids_max_size: 2000             # По умолчанию: 1000
+  }
+end
+```
+
+**Преимущества настраиваемых лимитов валидации:**
+- **Гибкость**: Настройка лимитов в соответствии с требованиями вашего приложения
+- **Производительность**: Точная настройка валидации для оптимальной производительности
+- **Эволюция API**: Легкая адаптация к изменениям в спецификациях API Роспатента
+- **Специфичность окружения**: Различные лимиты для разработки, staging и продакшна
 
 ### Конфигурация для конкретных окружений
 

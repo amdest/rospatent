@@ -27,6 +27,8 @@ module Rospatent
     attr_accessor :token_expires_at, :token_refresh_callback
     # Connection pooling
     attr_accessor :connection_pool_size, :connection_keep_alive
+    # Validation limits
+    attr_accessor :validation_limits
 
     # Initialize a new configuration with default values
     def initialize
@@ -56,6 +58,27 @@ module Rospatent
       # Connection pooling
       @connection_pool_size = ENV.fetch("ROSPATENT_POOL_SIZE", "5").to_i
       @connection_keep_alive = ENV.fetch("ROSPATENT_KEEP_ALIVE", "true") == "true"
+
+      # Validation limits
+      @validation_limits = {
+        query_max_length: 2000,
+        natural_query_max_length: 2000,
+        limit_max_value: 100,
+        offset_max_value: 10_000,
+        array_max_size: 10,
+        string_max_length: 1000,
+        pre_tag_max_length: 50,
+        post_tag_max_length: 50,
+        pre_tag_max_size: 10,
+        post_tag_max_size: 10,
+        classification_query_max_length: 1000,
+        classification_code_max_length: 50,
+        similar_text_min_words: 50,
+        similar_text_max_length: 10_000,
+        similar_count_max_value: 1000,
+        batch_size_max_value: 50,
+        batch_ids_max_size: 1000
+      }
 
       load_environment_config
     end

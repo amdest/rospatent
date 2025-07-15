@@ -97,17 +97,18 @@ module Rospatent
       validated = {}
 
       # Validate query parameters
-      validated[:q] = validate_string(params[:q], "q", max_length: 2000) if params[:q]
-      validated[:qn] = validate_string(params[:qn], "qn", max_length: 2000) if params[:qn]
+      config = Rospatent.configuration
+      validated[:q] = validate_string(params[:q], "q", max_length: config.validation_limits[:query_max_length]) if params[:q]
+      validated[:qn] = validate_string(params[:qn], "qn", max_length: config.validation_limits[:natural_query_max_length]) if params[:qn]
 
       # Validate pagination parameters (only if provided)
       if params[:limit]
         validated[:limit] =
-          validate_positive_integer(params[:limit], "limit", min_value: 1, max_value: 100)
+          validate_positive_integer(params[:limit], "limit", min_value: 1, max_value: config.validation_limits[:limit_max_value])
       end
       if params[:offset]
         validated[:offset] =
-          validate_positive_integer(params[:offset], "offset", min_value: 0, max_value: 10_000)
+          validate_positive_integer(params[:offset], "offset", min_value: 0, max_value: config.validation_limits[:offset_max_value])
       end
 
       # Validate highlighting parameters (only if provided)
@@ -119,9 +120,9 @@ module Rospatent
         end
 
         validated[:pre_tag] =
-          validate_string_or_array(params[:pre_tag], "pre_tag", max_length: 50, max_size: 10)
+          validate_string_or_array(params[:pre_tag], "pre_tag", max_length: config.validation_limits[:pre_tag_max_length], max_size: config.validation_limits[:pre_tag_max_size])
         validated[:post_tag] =
-          validate_string_or_array(params[:post_tag], "post_tag", max_length: 50, max_size: 10)
+          validate_string_or_array(params[:post_tag], "post_tag", max_length: config.validation_limits[:post_tag_max_length], max_size: config.validation_limits[:post_tag_max_size])
       end
 
       # Validate highlight parameter (complex object for advanced highlighting)
@@ -152,7 +153,7 @@ module Rospatent
 
       # Validate datasets parameter
       if params[:datasets]
-        validated[:datasets] = validate_array(params[:datasets], "datasets", max_size: 10) do |dataset|
+        validated[:datasets] = validate_array(params[:datasets], "datasets", max_size: config.validation_limits[:array_max_size]) do |dataset|
           validate_string(dataset, "dataset")
         end
       end
